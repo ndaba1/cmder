@@ -48,3 +48,24 @@ impl Default for Program {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_create_prog() {
+        let mut auto = Program::new();
+        auto.author("me").description("a test");
+
+        let manual = Program {
+            cmds: vec![],
+            version: "0.1.0".to_string(),
+            author: "me".to_string(),
+            about: "a test".to_string(),
+        };
+
+        assert_eq!(auto.author, manual.author);
+        assert_eq!(auto.about, manual.about);
+    }
+}
