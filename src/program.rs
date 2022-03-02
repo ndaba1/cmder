@@ -73,6 +73,11 @@ impl Program {
         let raw_args: Vec<String> = std::env::args().collect();
         let args = raw_args[1..].to_vec();
 
+        if args.is_empty() {
+            self.output_help("You did not pass a command!");
+            return;
+        }
+
         let cmd_names: Vec<String> = self.cmds.iter().map(|c| c.name.clone()).collect();
         let cmd_aliases: Vec<String> = self.cmds.iter().map(|c| c.alias.clone()).collect();
 
@@ -114,13 +119,17 @@ impl Program {
         }
         println!("COMMANDS: ");
         for cmd in &self.cmds {
-            let params: Vec<String> = cmd.params.iter().map(|c| c.name.clone()).collect();
-            println!("\t({} | {}) [options] {:?}", cmd.name, cmd.alias, params);
+            let mut params = String::new();
+            for a in &cmd.params {
+                params.push_str(a.literal.as_str());
+                params.push(' ');
+            }
+            println!("\t({} | {}) [options] {}", cmd.name, cmd.alias, params);
             println!("\t {}", cmd.description);
         }
 
         if !err.is_empty() {
-            println!("{}", err)
+            println!("\n{}\n", err)
         }
     }
 
