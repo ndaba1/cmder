@@ -1,3 +1,4 @@
+#[allow(unused_doc_comments)]
 use std::collections::HashMap;
 
 use super::super::program::Program;
@@ -10,7 +11,7 @@ pub struct Cmd {
     pub name: String,
 
     /// Any parameters, optional or otherwise, to be passed into the command
-    pub params: Vec<String>,
+    pub params: Vec<Argument>,
 
     /// An alias assigned to the command, usually the first letter of the command but not necessarily
     pub alias: String,
@@ -22,7 +23,14 @@ pub struct Cmd {
     pub options: Vec<Flag>,
 
     /// The callback is a closure that takes a ref to the command and a vec of strings, which are the actual args, it gets invoked when the passed command gets matched
-    pub callback: fn(&Cmd, &Vec<String>) -> (),
+    pub callback: fn(HashMap<String, String>, HashMap<String, String>) -> (),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Argument {
+    pub name: String,
+    pub required: bool,
+    pub literal: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,7 +56,22 @@ impl Cmd {
 
         self.name = arr[0].to_owned();
         for p in arr[1..].iter() {
-            self.params.push(p.to_string());
+            //TODO: Remove the angle brackets if any, and make the names camel cased
+            if p.starts_with("<") {
+                let name = p.replace("<", "").replace(">", "").replace("-", "_");
+                self.params.push(Argument {
+                    name,
+                    required: true,
+                    literal: p.to_string(),
+                })
+            } else if p.starts_with("[") {
+                let name = p.replace("[", "").replace("]", "").replace("-", "_");
+                self.params.push(Argument {
+                    name,
+                    required: false,
+                    literal: p.to_string(),
+                })
+            }
         }
 
         self
@@ -71,16 +94,21 @@ impl Cmd {
     /// A method for adding options/flags to a command. It takes in a string slice as input in the form `short | long | params? | docsting`
     /// Each of the fields have to be separated with the pipe symbol as so
     /// If no params are required by the flag then an empty space should be passed, but not omitted.
-    pub fn option(&mut self, body: &str) -> &mut Cmd {
-        let opts: Vec<_> = body.split('|').collect();
+    pub fn option(&mut self, body: &str, desc: &str) -> &mut Cmd {
+        let opts: Vec<_> = body.split(' ').collect();
 
         let r_opts: Vec<String> = opts.iter().map(|o| o.trim().to_string()).collect();
+        let params = if r_opts.len() > 2 {
+            r_opts[2].clone()
+        } else {
+            String::from("")
+        };
 
         let flag = Flag {
             short: r_opts[0].clone(),
             long: r_opts[1].clone(),
-            params: r_opts[2].clone(),
-            docstring: r_opts[3].clone(),
+            params,
+            docstring: desc.to_string(),
         };
 
         if !self.options.contains(&flag) {
@@ -92,7 +120,10 @@ impl Cmd {
 
     /// Takes in a closure that has two params: a ref to a command and a ref to 2 vector of Strings which are the actual args
     /// The closure returns a unit type and any program specific functionality should be implemented within the closure, such as calling a different handler.
-    pub fn action(&mut self, cb: fn(&Cmd, &Vec<String>) -> ()) -> &mut Cmd {
+    pub fn action(
+        &mut self,
+        cb: fn(HashMap<String, String>, HashMap<String, String>) -> (),
+    ) -> &mut Cmd {
         self.callback = cb;
 
         self
@@ -105,37 +136,82 @@ impl Cmd {
     }
 
     /// When the command is matched and resolved from the args passed, this methos is invoked and returns a hashmap containing all the flags passed and their inputs as well as any params passed to the command itself
-    pub fn parse(&self, raw_args: &Vec<String>) -> HashMap<String, Option<String>> {
-        // if raw_args.is_empty() {
-        //     Program::output_command_help(self, "Missing required arguments");
-        //     std::process::exit(1);
-        // }
+    pub fn parse(
+        &self,
+        raw_args: &Vec<String>,
+    ) -> (HashMap<String, String>, HashMap<String, String>) {
+        // TODO: Check if flag is unknown, act accordingly if so
+        // TODO: Return Two hashmaps, one containing all the params and their values and the other containing all the flags and their values and or boolean
 
-        let mut switches: Vec<String> = vec![];
-        let mut config: HashMap<String, Option<String>> = HashMap::new();
+        let vals: Vec<&String> = raw_args.iter().filter(|a| !a.starts_with("-")).collect();
+        let flags: Vec<&String> = raw_args.iter().filter(|a| a.starts_with("-")).collect();
+
+        let mut required = vec![];
+        for a in &self.params {
+            if a.required {
+                required.push(a.name.clone())
+            }
+        }
+
+        match vals.len() {
+            0 => {
+                if !required.is_empty() {
+                    let msg = format!("Missing required argument: {}", self.params[0].literal);
+                    self.output_command_help(&msg);
+                    std::process::exit(1)
+                }
+            }
+            val if val < required.len() => {
+                let msg = format!("Missing required argument: {}", self.params[val].literal);
+                self.output_command_help(&msg);
+                std::process::exit(1)
+            }
+            _ => {}
+        }
+
+        if flags.contains(&&String::from("-h")) || flags.contains(&&String::from("--help")) {
+            self.output_command_help("");
+            std::process::exit(1)
+        }
+
+        let mut options: HashMap<String, String> = HashMap::new();
+        let mut values: HashMap<String, String> = HashMap::new();
 
         for f in &self.options {
-            for arg in raw_args.iter().enumerate() {
-                if arg.1 == &f.short || arg.1 == &f.long {
-                    config.insert(arg.1.clone(), None);
+            for arg in flags.iter().enumerate() {
+                if arg.1 == &&f.short || arg.1 == &&f.long {
+                    let name = f.long.replace("--", "").replace("-", "_");
+                    options.insert(name, "true".to_string());
 
+                    let name = f.long.replace("--", "").replace("-", "_");
                     if !f.params.is_empty() {
-                        config.insert(arg.1.clone(), Some(raw_args[arg.0 + 1].clone()));
+                        options.insert(name, raw_args[arg.0 + 1].clone());
                     }
-                    switches.push(arg.1.clone())
                 }
             }
         }
 
-        for arg in raw_args {
-            if !switches.contains(arg) {
-                for p in &self.params {
-                    config.insert(p.to_owned(), Some(arg.to_owned()));
-                }
-            }
+        for (i, k) in self.params.iter().enumerate() {
+            let name = &k.name;
+            values.insert(name.to_owned(), vals[i].to_owned());
         }
 
-        config
+        (values, options)
+    }
+
+    pub fn output_command_help(&self, err: &str) {
+        println!("\n{}\n", self.description);
+        println!("USAGE: ");
+        println!("\texe [options] command\n");
+        println!("OPTIONS: ");
+        for opt in &self.options {
+            println!("\t{}, {}", opt.short, opt.long);
+            println!("\t{}\n", opt.docstring)
+        }
+
+        if !err.is_empty() {
+            println!("{}", err)
+        }
     }
 }
 
@@ -168,14 +244,18 @@ impl Default for Cmd {
 #[cfg(test)]
 mod test {
 
-    use super::{Cmd, Flag};
+    use super::*;
 
     #[test]
     fn test_new_cmd_fn() {
         let cmd = Cmd {
             name: "test".to_string(),
             alias: "t".to_string(),
-            params: vec![String::from("<app-name>")],
+            params: vec![Argument {
+                name: "app_name".to_string(),
+                required: true,
+                literal: "<app-name>".to_string(),
+            }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),
             options: vec![Flag {
@@ -191,7 +271,7 @@ mod test {
             .command("test <app-name>")
             .alias("t")
             .describe("Some test")
-            .option("-h | --help |  | Displays the help command")
+            .option("-h --help", "Displays the help command")
             .action(|_cmd, _args| {});
 
         assert_eq!(
