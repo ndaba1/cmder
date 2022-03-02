@@ -89,8 +89,8 @@ impl Program {
                     .collect();
                 let cmd = matched[0];
                 // Call cmd.parse here and pass the config object to the callback
-                let config = cmd.parse(&args[1..].to_vec());
-                (cmd.callback)(cmd, config);
+                let (vals, opts) = cmd.parse(&args[1..].to_vec());
+                (cmd.callback)(vals, opts);
             }
             val if val.starts_with("-") => {
                 let msg = format!("Unknown option {}", val);
@@ -114,12 +114,8 @@ impl Program {
         }
         println!("COMMANDS: ");
         for cmd in &self.cmds {
-            println!(
-                "\t({} | {}) [options] <{}> ",
-                cmd.name,
-                cmd.alias,
-                cmd.params.first().unwrap_or(&String::from(""))
-            );
+            let params: Vec<String> = cmd.params.iter().map(|c| c.name.clone()).collect();
+            println!("\t({} | {}) [options] {:?}", cmd.name, cmd.alias, params);
             println!("\t {}", cmd.description);
         }
 
