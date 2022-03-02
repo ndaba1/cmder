@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::utils::check_for_listener;
+
 use super::parser::{Cmd, Flag};
 
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
@@ -27,7 +29,9 @@ pub enum Event {
     OptionMissingArgument,
     OutputCommandHelp,
     OutputHelp,
+    OutputVersion,
     UnknownCommand,
+    UnknownOption,
 }
 
 impl Program {
@@ -95,8 +99,14 @@ impl Program {
         let cmd_aliases: Vec<String> = self.cmds.iter().map(|c| c.alias.clone()).collect();
 
         match args[0].to_lowercase().as_str() {
-            "-h" | "--help" => self.output_help(""),
-            "-v" | "--version" => self.output_version_info(),
+            "-h" | "--help" => {
+                self.output_help("");
+                check_for_listener(Event::OutputHelp, &self, "".to_string());
+            }
+            "-v" | "--version" => {
+                check_for_listener(Event::OutputVersion, &self, self.version.clone());
+                self.output_version_info()
+            }
             val if cmd_names.contains(&val.to_string())
                 | cmd_aliases.contains(&val.to_string()) =>
             {
@@ -110,10 +120,12 @@ impl Program {
                 (cmd.callback)(vals, opts);
             }
             val if val.starts_with("-") => {
+                check_for_listener(Event::UnknownOption, &self, val.to_string());
                 let msg = format!("Unknown option \"{}\"", val);
                 self.output_help(msg.as_str());
             }
             val => {
+                check_for_listener(Event::UnknownCommand, &self, val.to_string());
                 let msg = format!("Unknown command \"{}\"", val);
                 self.output_help(msg.as_str());
             }
@@ -162,11 +174,17 @@ impl Program {
             UnknownCommand => {
                 self.add_listener(UnknownCommand, callback);
             }
+            UnknownOption => {
+                self.add_listener(UnknownOption, callback);
+            }
             OutputHelp => {
                 self.add_listener(OutputHelp, callback);
             }
             OutputCommandHelp => {
                 self.add_listener(OutputCommandHelp, callback);
+            }
+            OutputVersion => {
+                self.add_listener(OutputVersion, callback);
             }
         }
     }

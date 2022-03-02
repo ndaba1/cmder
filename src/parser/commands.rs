@@ -1,7 +1,10 @@
 #[allow(unused_doc_comments)]
 use std::collections::HashMap;
 
-use super::super::program::Program;
+use crate::Event;
+
+use super::super::utils::check_for_listener;
+use super::super::Program;
 
 #[derive(Clone)]
 /// The Command struct represents the structure of a command/subcommand that can be invoked from your CLI.
@@ -159,6 +162,7 @@ impl Cmd {
     /// When the command is matched and resolved from the args passed, this methos is invoked and returns a hashmap containing all the flags passed and their inputs as well as any params passed to the command itself
     pub fn parse(
         &self,
+        program: &Program,
         raw_args: &Vec<String>,
     ) -> (HashMap<String, String>, HashMap<String, String>) {
         // TODO: Check if flag is unknown, act accordingly if so
@@ -184,18 +188,30 @@ impl Cmd {
 
         if flags.contains(&&String::from("-h")) || flags.contains(&&String::from("--help")) {
             self.output_command_help("");
-            std::process::exit(1)
+            check_for_listener(Event::OutputCommandHelp, program, String::from(""));
         }
 
         match vals.len() {
             0 => {
                 if !required.is_empty() {
+                    check_for_listener(
+                        Event::MissingArgument,
+                        program,
+                        self.params[0].literal.clone(),
+                    );
+
                     let msg = format!("Missing required argument: {}", self.params[0].literal);
                     self.output_command_help(&msg);
+
                     std::process::exit(1)
                 }
             }
             val if val < required.len() => {
+                check_for_listener(
+                    Event::MissingArgument,
+                    program,
+                    self.params[val].literal.clone(),
+                );
                 let msg = format!("Missing required argument: {}", self.params[val].literal);
                 self.output_command_help(&msg);
                 std::process::exit(1)
@@ -218,6 +234,11 @@ impl Cmd {
                                 }
                                 None => {
                                     if a.required {
+                                        check_for_listener(
+                                            Event::OptionMissingArgument,
+                                            program,
+                                            String::from(format!("{}, {}", a.literal, arg.1)),
+                                        );
                                         let msg = format!(
                                             "Missing required argument: {} for option: {}",
                                             a.literal, arg.1
@@ -258,7 +279,8 @@ impl Cmd {
         for opt in &self.options {
             let mut params = String::new();
             for v in &opt.params {
-                params.push_str(v.literal.as_str())
+                params.push_str(v.literal.as_str());
+                params.push(' ');
             }
             println!("\t{}, {} {}", opt.short, opt.long, params);
             println!("\t{}\n", opt.docstring)
