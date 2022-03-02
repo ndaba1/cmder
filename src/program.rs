@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::parser::{Cmd, Flag};
 
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
@@ -16,6 +18,14 @@ pub struct Program {
 
     /// A vector containing the flags/swicthed that can be passed to the root instance of the program and not the subcommands
     pub options: Vec<Flag>,
+
+    pub listeners: HashMap<Event, Vec<fn(String) -> ()>>,
+}
+#[derive(PartialEq, Eq, Hash)]
+pub enum Event {
+    MissingArgument,
+    UnknownCommand,
+    OptionMissingArgument,
 }
 
 impl Program {
@@ -26,17 +36,18 @@ impl Program {
             version: "0.1.0".to_owned(),
             author: "".to_owned(),
             about: "".to_owned(),
+            listeners: HashMap::new(),
             options: vec![
                 Flag {
                     short: "-h".to_string(),
                     long: "--help".to_string(),
-                    params: "".to_string(),
+                    params: vec![],
                     docstring: "Output help for the program".to_string(),
                 },
                 Flag {
                     short: "-v".to_string(),
                     long: "--version".to_string(),
-                    params: "".to_string(),
+                    params: vec![],
                     docstring: "Output the version info for the program".to_string(),
                 },
             ],
@@ -93,16 +104,15 @@ impl Program {
                     .filter(|c| c.name.as_str() == val || c.alias.as_str() == val)
                     .collect();
                 let cmd = matched[0];
-                // Call cmd.parse here and pass the config object to the callback
                 let (vals, opts) = cmd.parse(&args[1..].to_vec());
                 (cmd.callback)(vals, opts);
             }
             val if val.starts_with("-") => {
-                let msg = format!("Unknown option {}", val);
+                let msg = format!("Unknown option \"{}\"", val);
                 self.output_help(msg.as_str());
             }
             val => {
-                let msg = format!("Unknown command {}", val);
+                let msg = format!("Unknown command \"{}\"", val);
                 self.output_help(msg.as_str());
             }
         }
@@ -136,6 +146,31 @@ impl Program {
     pub fn output_version_info(&self) {
         println!("{}", self.version)
     }
+
+    pub fn on(&mut self, event: Event, callback: fn(String) -> ()) {
+        use Event::*;
+
+        match event {
+            MissingArgument => {
+                let existing = self.listeners.get(&MissingArgument);
+
+                match existing {
+                    Some(values) => {
+                        let mut new_cbs = vec![];
+                        for cb in values.clone() {
+                            new_cbs.push(cb)
+                        }
+                        self.listeners.insert(MissingArgument, new_cbs);
+                    }
+                    None => {
+                        self.listeners.insert(MissingArgument, vec![callback]);
+                    }
+                }
+            }
+            OptionMissingArgument => {}
+            UnknownCommand => {}
+        }
+    }
 }
 
 impl Default for Program {
@@ -159,6 +194,7 @@ mod test {
             author: "me".to_string(),
             about: "a test".to_string(),
             options: vec![],
+            listeners: HashMap::new(),
         };
 
         assert_eq!(auto.author, manual.author);
