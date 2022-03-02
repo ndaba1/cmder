@@ -19,13 +19,15 @@ pub struct Program {
     /// A vector containing the flags/swicthed that can be passed to the root instance of the program and not the subcommands
     pub options: Vec<Flag>,
 
-    pub listeners: HashMap<Event, Vec<fn(String) -> ()>>,
+    pub listeners: HashMap<Event, Vec<fn(&Program, String) -> ()>>,
 }
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Event {
     MissingArgument,
-    UnknownCommand,
     OptionMissingArgument,
+    OutputCommandHelp,
+    OutputHelp,
+    UnknownCommand,
 }
 
 impl Program {
@@ -104,7 +106,7 @@ impl Program {
                     .filter(|c| c.name.as_str() == val || c.alias.as_str() == val)
                     .collect();
                 let cmd = matched[0];
-                let (vals, opts) = cmd.parse(&args[1..].to_vec());
+                let (vals, opts) = cmd.parse(&self, &args[1..].to_vec());
                 (cmd.callback)(vals, opts);
             }
             val if val.starts_with("-") => {
@@ -147,28 +149,43 @@ impl Program {
         println!("{}", self.version)
     }
 
-    pub fn on(&mut self, event: Event, callback: fn(String) -> ()) {
+    pub fn on(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
         use Event::*;
 
         match event {
             MissingArgument => {
-                let existing = self.listeners.get(&MissingArgument);
-
-                match existing {
-                    Some(values) => {
-                        let mut new_cbs = vec![];
-                        for cb in values.clone() {
-                            new_cbs.push(cb)
-                        }
-                        self.listeners.insert(MissingArgument, new_cbs);
-                    }
-                    None => {
-                        self.listeners.insert(MissingArgument, vec![callback]);
-                    }
-                }
+                self.add_listener(MissingArgument, callback);
             }
-            OptionMissingArgument => {}
-            UnknownCommand => {}
+            OptionMissingArgument => {
+                self.add_listener(OptionMissingArgument, callback);
+            }
+            UnknownCommand => {
+                self.add_listener(UnknownCommand, callback);
+            }
+            OutputHelp => {
+                self.add_listener(OutputHelp, callback);
+            }
+            OutputCommandHelp => {
+                self.add_listener(OutputCommandHelp, callback);
+            }
+        }
+    }
+
+    fn add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
+        let existing = self.listeners.get(&event);
+
+        match existing {
+            Some(values) => {
+                let mut new_cbs = vec![];
+                for cb in values.clone() {
+                    new_cbs.push(cb)
+                }
+                new_cbs.push(callback);
+                self.listeners.insert(event, new_cbs);
+            }
+            None => {
+                self.listeners.insert(event, vec![callback]);
+            }
         }
     }
 }
