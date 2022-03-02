@@ -4,5 +4,6 @@
 
 pub mod parser;
 pub mod program;
+pub mod utils;
 
 pub use program::{Event, Program};
