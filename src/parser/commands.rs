@@ -43,7 +43,7 @@ pub struct Flag {
     pub long: String,
 
     /// Any parameters that the switch accepts, or requires
-    pub params: String,
+    pub params: Vec<Argument>,
 
     /// A description of the flag and the inputs its accepts
     pub docstring: String,
@@ -99,9 +99,30 @@ impl Cmd {
 
         let r_opts: Vec<String> = opts.iter().map(|o| o.trim().to_string()).collect();
         let params = if r_opts.len() > 2 {
-            r_opts[2].clone()
+            let args: Vec<Argument> = r_opts[2..]
+                .to_vec()
+                .iter()
+                .map(|v| {
+                    if v.starts_with("<") {
+                        let name = v.replace("<", "").replace(">", "").replace("-", "_");
+                        Argument {
+                            name,
+                            required: true,
+                            literal: v.to_string(),
+                        }
+                    } else {
+                        let name = v.replace("[", "").replace("]", "").replace("-", "_");
+                        Argument {
+                            name,
+                            required: false,
+                            literal: v.to_string(),
+                        }
+                    }
+                })
+                .collect();
+            args
         } else {
-            String::from("")
+            vec![]
         };
 
         let flag = Flag {
@@ -143,7 +164,15 @@ impl Cmd {
         // TODO: Check if flag is unknown, act accordingly if so
         // TODO: Return Two hashmaps, one containing all the params and their values and the other containing all the flags and their values and or boolean
 
-        let vals: Vec<&String> = raw_args.iter().filter(|a| !a.starts_with("-")).collect();
+        let vals: Vec<_> = raw_args
+            .iter()
+            .enumerate()
+            .filter(|(i, a)| match i {
+                0 => !a.starts_with("-"),
+                _ => !a.starts_with("-") && !raw_args[i - 1].starts_with("-"),
+            })
+            .map(|(_i, v)| v)
+            .collect();
         let flags: Vec<&String> = raw_args.iter().filter(|a| a.starts_with("-")).collect();
 
         let mut required = vec![];
@@ -151,6 +180,11 @@ impl Cmd {
             if a.required {
                 required.push(a.name.clone())
             }
+        }
+
+        if flags.contains(&&String::from("-h")) || flags.contains(&&String::from("--help")) {
+            self.output_command_help("");
+            std::process::exit(1)
         }
 
         match vals.len() {
@@ -169,23 +203,34 @@ impl Cmd {
             _ => {}
         }
 
-        if flags.contains(&&String::from("-h")) || flags.contains(&&String::from("--help")) {
-            self.output_command_help("");
-            std::process::exit(1)
-        }
-
         let mut options: HashMap<String, String> = HashMap::new();
         let mut values: HashMap<String, String> = HashMap::new();
 
         for f in &self.options {
-            for arg in flags.iter().enumerate() {
-                if arg.1 == &&f.short || arg.1 == &&f.long {
-                    let name = f.long.replace("--", "").replace("-", "_");
-                    options.insert(name, "true".to_string());
-
-                    let name = f.long.replace("--", "").replace("-", "_");
+            for arg in raw_args.iter().enumerate() {
+                if arg.1 == &f.short || arg.1 == &f.long {
                     if !f.params.is_empty() {
-                        options.insert(name, raw_args[arg.0 + 1].clone());
+                        for (i, a) in f.params.iter().enumerate() {
+                            match raw_args.get(arg.0 + (i + 1)) {
+                                Some(val) => {
+                                    let name = a.name.replace("--", "").replace("-", "_");
+                                    options.insert(name, val.to_owned());
+                                }
+                                None => {
+                                    if a.required {
+                                        let msg = format!(
+                                            "Missing required argument: {} for option: {}",
+                                            a.literal, arg.1
+                                        );
+                                        self.output_command_help(&msg);
+                                        std::process::exit(1)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        let name = f.long.replace("--", "").replace("-", "_");
+                        options.insert(name, "true".to_string());
                     }
                 }
             }
@@ -193,7 +238,13 @@ impl Cmd {
 
         for (i, k) in self.params.iter().enumerate() {
             let name = &k.name;
-            values.insert(name.to_owned(), vals[i].to_owned());
+            match vals.get(i) {
+                Some(v) => {
+                    let val = v.to_owned();
+                    values.insert(name.to_owned(), val.to_owned());
+                }
+                None => {}
+            };
         }
 
         (values, options)
@@ -205,12 +256,16 @@ impl Cmd {
         println!("\texe [options] command\n");
         println!("OPTIONS: ");
         for opt in &self.options {
-            println!("\t{}, {}", opt.short, opt.long);
+            let mut params = String::new();
+            for v in &opt.params {
+                params.push_str(v.literal.as_str())
+            }
+            println!("\t{}, {} {}", opt.short, opt.long, params);
             println!("\t{}\n", opt.docstring)
         }
 
         if !err.is_empty() {
-            println!("{}", err)
+            println!("\n{}\n", err)
         }
     }
 }
@@ -227,7 +282,7 @@ impl Cmd {
             options: vec![Flag {
                 short: "-h".to_owned(),
                 long: "--help".to_owned(),
-                params: "".to_owned(),
+                params: vec![],
                 docstring: "Displays the help command".to_owned(),
             }],
             callback: |_cmd, _args| {},
@@ -261,7 +316,7 @@ mod test {
             options: vec![Flag {
                 short: "-h".to_string(),
                 long: "--help".to_string(),
-                params: "".to_string(),
+                params: vec![],
                 docstring: "Displays the help command".to_string(),
             }],
         };
