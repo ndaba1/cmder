@@ -6,6 +6,6 @@ pub fn check_for_listener(event: Event, program: &Program, param: String) {
         for cb in callbacks {
             cb(program, param.clone())
         }
+        std::process::exit(1)
     }
-    std::process::exit(1)
 }
