@@ -1,10 +1,9 @@
-#[allow(unused_doc_comments)]
 use std::collections::HashMap;
 
 use crate::Event;
 
-use super::super::utils::check_for_listener;
 use super::super::Program;
+use super::{resolve_flag, Argument, Flag};
 
 #[derive(Clone)]
 /// The Command struct represents the structure of a command/subcommand that can be invoked from your CLI.
@@ -25,56 +24,19 @@ pub struct Cmd {
     /// Options refer to the flags/switches that your command can receive
     pub options: Vec<Flag>,
 
-    /// The callback is a closure that takes a ref to the command and a vec of strings, which are the actual args, it gets invoked when the passed command gets matched
+    /// The callback is a closure that takes in two hashmaps, each of which contain string keys and values, the first hashmap contains all the values of the params to the given command, while the second hashmap contains the metadata for any flags passed to the command and their values if any.
     pub callback: fn(HashMap<String, String>, HashMap<String, String>) -> (),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Argument {
-    pub name: String,
-    pub required: bool,
-    pub literal: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-/// The Flag struct holds the fields that the `options/switches` of a given command
-pub struct Flag {
-    /// A short version of the switch/flag, usually begins with a single hyphen, such as -h
-    pub short: String,
-
-    /// The full/long version of the switch, usually begins with double hyphens, ie. --help
-    pub long: String,
-
-    /// Any parameters that the switch accepts, or requires
-    pub params: Vec<Argument>,
-
-    /// A description of the flag and the inputs its accepts
-    pub docstring: String,
-}
-
 impl Cmd {
-    /// This function received a string slice that contains the name of the command and any params required by the said command and modifies the struct to which it is chained accordingly
+    /// This function receives a string slice that contains the name of the command and any params required by the said command and modifies the struct to which it is chained accordingly.
+    /// The string slice is plit by whitespace and the first value of the resulting array is set to the name of the command while the rest are set to Params of the command using the Argument struct. Depending on whether the argument starts with angle brackets or square brackets, the argument is marked as required or not. To avoid repetition, this functionality for cleaning the args was moved to the params module: `src/utils/params.rs`
     pub fn command(&mut self, val: &str) -> &mut Cmd {
         let arr: Vec<_> = val.split(' ').collect();
-
         self.name = arr[0].to_owned();
+
         for p in arr[1..].iter() {
-            //TODO: Remove the angle brackets if any, and make the names camel cased
-            if p.starts_with("<") {
-                let name = p.replace("<", "").replace(">", "").replace("-", "_");
-                self.params.push(Argument {
-                    name,
-                    required: true,
-                    literal: p.to_string(),
-                })
-            } else if p.starts_with("[") {
-                let name = p.replace("[", "").replace("]", "").replace("-", "_");
-                self.params.push(Argument {
-                    name,
-                    required: false,
-                    literal: p.to_string(),
-                })
-            }
+            self.params.push(Argument::new(p))
         }
 
         self
@@ -94,46 +56,10 @@ impl Cmd {
         self
     }
 
-    /// A method for adding options/flags to a command. It takes in a string slice as input in the form `short | long | params? | docsting`
-    /// Each of the fields have to be separated with the pipe symbol as so
-    /// If no params are required by the flag then an empty space should be passed, but not omitted.
+    /// A method for adding options/flags to a command. It takes in two string slices as input in the form: `short long params?`, `docstring`
+    /// The params field is optional, but if included, follows the same rules as the params in the command method above.
     pub fn option(&mut self, body: &str, desc: &str) -> &mut Cmd {
-        let opts: Vec<_> = body.split(' ').collect();
-
-        let r_opts: Vec<String> = opts.iter().map(|o| o.trim().to_string()).collect();
-        let params = if r_opts.len() > 2 {
-            let args: Vec<Argument> = r_opts[2..]
-                .to_vec()
-                .iter()
-                .map(|v| {
-                    if v.starts_with("<") {
-                        let name = v.replace("<", "").replace(">", "").replace("-", "_");
-                        Argument {
-                            name,
-                            required: true,
-                            literal: v.to_string(),
-                        }
-                    } else {
-                        let name = v.replace("[", "").replace("]", "").replace("-", "_");
-                        Argument {
-                            name,
-                            required: false,
-                            literal: v.to_string(),
-                        }
-                    }
-                })
-                .collect();
-            args
-        } else {
-            vec![]
-        };
-
-        let flag = Flag {
-            short: r_opts[0].clone(),
-            long: r_opts[1].clone(),
-            params,
-            docstring: desc.to_string(),
-        };
+        let flag = Flag::new(body, desc);
 
         if !self.options.contains(&flag) {
             self.options.push(flag);
@@ -142,8 +68,8 @@ impl Cmd {
         self
     }
 
-    /// Takes in a closure that has two params: a ref to a command and a ref to 2 vector of Strings which are the actual args
-    /// The closure returns a unit type and any program specific functionality should be implemented within the closure, such as calling a different handler.
+    /// Takes in the actual callback function that is called once all the parsing is done and the command resolved. The closure takes in two hashmaps and returns a unit type.
+    /// Any extra functionality can be implemented here. Such as calling a different handler or anything else.
     pub fn action(
         &mut self,
         cb: fn(HashMap<String, String>, HashMap<String, String>) -> (),
@@ -159,122 +85,79 @@ impl Cmd {
         prog.cmds.push(self.clone())
     }
 
-    /// When the command is matched and resolved from the args passed, this methos is invoked and returns a hashmap containing all the flags passed and their inputs as well as any params passed to the command itself
+    /// This is a fairly involved method. It takes in the instance of the program, as well as the arguments passed to a command and parses them, to return two hashmaps, one containg the params of the command and their values and another containing the flags passed to the command and their resolved values if any.
+    /// The methods checks for required params and whether or not they're missing, checks if the help flag is included or not and if any `Events` are encountered, it checks for listeners and if none are found the program executes in a default manner.
     pub fn parse(
         &self,
         program: &Program,
         raw_args: &Vec<String>,
     ) -> (HashMap<String, String>, HashMap<String, String>) {
-        // TODO: Check if flag is unknown, act accordingly if so
-        // TODO: Return Two hashmaps, one containing all the params and their values and the other containing all the flags and their values and or boolean
+        let mut options = HashMap::new();
+        let mut values = HashMap::new();
 
-        let vals: Vec<_> = raw_args
-            .iter()
-            .enumerate()
-            .filter(|(i, a)| match i {
-                0 => !a.starts_with("-"),
-                _ => !a.starts_with("-") && !raw_args[i - 1].starts_with("-"),
-            })
-            .map(|(_i, v)| v)
-            .collect();
-        let flags: Vec<&String> = raw_args.iter().filter(|a| a.starts_with("-")).collect();
+        let mut flags_and_args = vec![];
+        for (idx, a) in raw_args.iter().enumerate() {
+            if let Some(v) = resolve_flag(&self.options, a) {
+                if v.short.as_str() == "-h" {
+                    // handle help flag being called
+                    self.output_command_help(program, "");
+                    program.emit(Event::OutputCommandHelp, self.name.as_str());
+                    std::process::exit(0);
+                }
+                let ans = v.get_matches(self, program, idx, &raw_args).unwrap();
+                options.insert(ans.0.clone(), ans.1.clone());
 
-        let mut required = vec![];
-        for a in &self.params {
-            if a.required {
-                required.push(a.name.clone())
+                flags_and_args.push(a.clone());
+                flags_and_args.push(ans.1);
             }
         }
 
-        if flags.contains(&&String::from("-h")) || flags.contains(&&String::from("--help")) {
-            self.output_command_help("");
-            check_for_listener(Event::OutputCommandHelp, program, String::from(""));
+        // get all values that were not matched as flags or flags' params
+        let mut input = vec![];
+        for a in raw_args {
+            if !flags_and_args.contains(a) {
+                input.push(a)
+            }
         }
 
-        match vals.len() {
+        // check if any required inputs are missing and act accordingly if so
+        let required = Argument::get_required_args(&self.params);
+        let handler = |i: usize| {
+            program.emit(Event::MissingArgument, self.params[i].literal.as_str());
+
+            let msg = format!("Missing required argument: {}", self.params[i].literal);
+            self.output_command_help(program, &msg);
+            std::process::exit(1)
+        };
+
+        // handle mutiple inputs required
+        match input.len() {
             0 => {
                 if !required.is_empty() {
-                    check_for_listener(
-                        Event::MissingArgument,
-                        program,
-                        self.params[0].literal.clone(),
-                    );
-
-                    let msg = format!("Missing required argument: {}", self.params[0].literal);
-                    self.output_command_help(&msg);
-
-                    std::process::exit(1)
+                    handler(0);
                 }
             }
-            val if val < required.len() => {
-                check_for_listener(
-                    Event::MissingArgument,
-                    program,
-                    self.params[val].literal.clone(),
-                );
-                let msg = format!("Missing required argument: {}", self.params[val].literal);
-                self.output_command_help(&msg);
-                std::process::exit(1)
-            }
+            val if val < required.len() => handler(val),
             _ => {}
         }
 
-        let mut options: HashMap<String, String> = HashMap::new();
-        let mut values: HashMap<String, String> = HashMap::new();
-
-        for f in &self.options {
-            for arg in raw_args.iter().enumerate() {
-                if arg.1 == &f.short || arg.1 == &f.long {
-                    if !f.params.is_empty() {
-                        for (i, a) in f.params.iter().enumerate() {
-                            match raw_args.get(arg.0 + (i + 1)) {
-                                Some(val) => {
-                                    let name = a.name.replace("--", "").replace("-", "_");
-                                    options.insert(name, val.to_owned());
-                                }
-                                None => {
-                                    if a.required {
-                                        check_for_listener(
-                                            Event::OptionMissingArgument,
-                                            program,
-                                            String::from(format!("{}, {}", a.literal, arg.1)),
-                                        );
-                                        let msg = format!(
-                                            "Missing required argument: {} for option: {}",
-                                            a.literal, arg.1
-                                        );
-                                        self.output_command_help(&msg);
-                                        std::process::exit(1)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        let name = f.long.replace("--", "").replace("-", "_");
-                        options.insert(name, "true".to_string());
-                    }
-                }
-            }
-        }
-
+        //TODO: more robust code for checking the input values
         for (i, k) in self.params.iter().enumerate() {
             let name = &k.name;
-            match vals.get(i) {
-                Some(v) => {
-                    let val = v.to_owned();
-                    values.insert(name.to_owned(), val.to_owned());
-                }
-                None => {}
-            };
+
+            if let Some(v) = input.get(i) {
+                let val = v.to_owned();
+                values.insert(name.to_owned(), val.to_owned());
+            }
         }
 
         (values, options)
     }
 
-    pub fn output_command_help(&self, err: &str) {
+    pub fn output_command_help(&self, prog: &Program, err: &str) {
         println!("\n{}\n", self.description);
         println!("USAGE: ");
-        println!("\texe [options] command\n");
+        println!("\t{} {} [options]\n", prog.name, self.name);
         println!("OPTIONS: ");
         for opt in &self.options {
             let mut params = String::new();

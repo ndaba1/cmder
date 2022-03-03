@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-
-use crate::utils::check_for_listener;
-
 use super::parser::{Cmd, Flag};
+use super::{Event, EventEmitter};
 
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
 pub struct Program {
@@ -21,17 +18,11 @@ pub struct Program {
     /// A vector containing the flags/swicthed that can be passed to the root instance of the program and not the subcommands
     pub options: Vec<Flag>,
 
-    pub listeners: HashMap<Event, Vec<fn(&Program, String) -> ()>>,
-}
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
-pub enum Event {
-    MissingArgument,
-    OptionMissingArgument,
-    OutputCommandHelp,
-    OutputHelp,
-    OutputVersion,
-    UnknownCommand,
-    UnknownOption,
+    /// A Hashmap containing Events as the keys and a vector of callbacks, each of type listener. The callbacks get iterated through and invoked once the event occurs.
+    pub event_emitter: EventEmitter,
+
+    /// The name of the program. It is obtained from the args passed to the cli and is used when printing help information, or any other cases that require the program name
+    pub name: String,
 }
 
 impl Program {
@@ -39,23 +30,14 @@ impl Program {
     pub fn new() -> Self {
         Self {
             cmds: vec![],
-            version: "0.1.0".to_owned(),
-            author: "".to_owned(),
+            name: "".to_owned(),
             about: "".to_owned(),
-            listeners: HashMap::new(),
+            author: "".to_owned(),
+            version: "0.1.0".to_owned(),
+            event_emitter: EventEmitter::new(),
             options: vec![
-                Flag {
-                    short: "-h".to_string(),
-                    long: "--help".to_string(),
-                    params: vec![],
-                    docstring: "Output help for the program".to_string(),
-                },
-                Flag {
-                    short: "-v".to_string(),
-                    long: "--version".to_string(),
-                    params: vec![],
-                    docstring: "Output the version info for the program".to_string(),
-                },
+                Flag::new("-h, --help", "Output help for the program"),
+                Flag::new("-v, --version", "Output the version info for the program"),
             ],
         }
     }
@@ -83,11 +65,25 @@ impl Program {
         Cmd::new()
     }
 
-    pub fn parse(&self) {
-        // Check if very first arg is special flag, act and exit
-        // Check if first arg is known command, act then
-        // Check if args are empty
+    /// A private utility function that receives the first argument passed to the program, being the path to the binary file and extracts the name of the executable to be set as the name of the program and utilized when printing out help information.
+    fn get_target_name(&self, val: String) -> String {
+        if cfg!(windows) {
+            let path_buff: Vec<&str> = val.split('\\').collect();
+            let target = path_buff.last().unwrap();
+            target.replace(".exe", "")
+        } else {
+            let path_buff: Vec<&str> = val.split('/').collect();
+            let target = path_buff.last().unwrap();
+            target.to_string()
+        }
+    }
+
+    /// A fairly involved function, similar to the cmd.parse() method except it matches the command, if found, and invokes its callbacks
+    /// If no command is matched, it either acts in a default manner or executes the set callbacks
+    /// Also checks for the help and version flags.
+    pub fn parse(&mut self) {
         let raw_args: Vec<String> = std::env::args().collect();
+        self.name = self.get_target_name(raw_args[0].clone());
         let args = raw_args[1..].to_vec();
 
         if args.is_empty() {
@@ -101,10 +97,10 @@ impl Program {
         match args[0].to_lowercase().as_str() {
             "-h" | "--help" => {
                 self.output_help("");
-                check_for_listener(Event::OutputHelp, &self, "".to_string());
+                self.emit(Event::OutputHelp, "");
             }
             "-v" | "--version" => {
-                check_for_listener(Event::OutputVersion, &self, self.version.clone());
+                self.emit(Event::OutputVersion, self.version.as_str());
                 self.output_version_info()
             }
             val if cmd_names.contains(&val.to_string())
@@ -116,26 +112,34 @@ impl Program {
                     .filter(|c| c.name.as_str() == val || c.alias.as_str() == val)
                     .collect();
                 let cmd = matched[0];
-                let (vals, opts) = cmd.parse(&self, &args[1..].to_vec());
+                let (vals, opts) = cmd.parse(self, &args[1..].to_vec());
                 (cmd.callback)(vals, opts);
             }
-            val if val.starts_with("-") => {
-                check_for_listener(Event::UnknownOption, &self, val.to_string());
+            val if val.starts_with('-') => {
+                self.emit(Event::UnknownOption, val);
                 let msg = format!("Unknown option \"{}\"", val);
                 self.output_help(msg.as_str());
             }
             val => {
-                check_for_listener(Event::UnknownCommand, &self, val.to_string());
+                self.emit(Event::UnknownCommand, val);
                 let msg = format!("Unknown command \"{}\"", val);
                 self.output_help(msg.as_str());
             }
         }
     }
 
+    pub fn on(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
+        self.event_emitter.on(event, callback);
+    }
+
+    pub fn emit(&self, event: Event, param: &str) {
+        self.event_emitter.emit(self, event, param.to_owned())
+    }
+
     pub fn output_help(&self, err: &str) {
         println!("\n{}\n", self.about);
         println!("USAGE: ");
-        println!("\texe [options] command\n");
+        println!("\t{} [options] [COMMAND]\n", self.name);
         println!("OPTIONS: ");
         for opt in &self.options {
             println!("\t{}, {}", opt.short, opt.long);
@@ -155,56 +159,12 @@ impl Program {
         if !err.is_empty() {
             println!("\n{}\n", err)
         }
+
+        self.emit(Event::OutputHelp, "");
     }
 
     pub fn output_version_info(&self) {
         println!("{}", self.version)
-    }
-
-    pub fn on(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
-        use Event::*;
-
-        match event {
-            MissingArgument => {
-                self.add_listener(MissingArgument, callback);
-            }
-            OptionMissingArgument => {
-                self.add_listener(OptionMissingArgument, callback);
-            }
-            UnknownCommand => {
-                self.add_listener(UnknownCommand, callback);
-            }
-            UnknownOption => {
-                self.add_listener(UnknownOption, callback);
-            }
-            OutputHelp => {
-                self.add_listener(OutputHelp, callback);
-            }
-            OutputCommandHelp => {
-                self.add_listener(OutputCommandHelp, callback);
-            }
-            OutputVersion => {
-                self.add_listener(OutputVersion, callback);
-            }
-        }
-    }
-
-    fn add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
-        let existing = self.listeners.get(&event);
-
-        match existing {
-            Some(values) => {
-                let mut new_cbs = vec![];
-                for cb in values.clone() {
-                    new_cbs.push(cb)
-                }
-                new_cbs.push(callback);
-                self.listeners.insert(event, new_cbs);
-            }
-            None => {
-                self.listeners.insert(event, vec![callback]);
-            }
-        }
     }
 }
 
@@ -229,7 +189,8 @@ mod test {
             author: "me".to_string(),
             about: "a test".to_string(),
             options: vec![],
-            listeners: HashMap::new(),
+            event_emitter: EventEmitter::new(),
+            name: "".to_owned(),
         };
 
         assert_eq!(auto.author, manual.author);
