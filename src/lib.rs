@@ -1,6 +1,6 @@
 //! A simple, lighweight crate to parse command line arguments. Inspired by its javascript equivalent, commander.js.
 //!
-//! This crate is relatively similar in syntax from the said library and is easy to get started with. It presents a builder interface to work with and can easily be extended to suit your needs.
+//! This crate is relatively similar in syntax to the said library and is easy to get started with. It presents a builder interface to work with and can easily be extended to suit your needs.
 //! The crate only offers a builder interface, no derive features, if you're looking such features or something more powerful, you should probably check out `clap`.
 //!
 //! There are only three constructs you need to be aware of when using this crate. Program, Event and Cmd. A program is what you actually create. An instance of your, well program, It contains a few fields, some for metadata such as `version`, `author` and `about` and the most important field, the `cmds` field which is a vector of `Cmds`
@@ -62,6 +62,11 @@
 //!  program.on(Event::OutputVersion, |p, v| {
 //!      println!("You are using version {} of my program", v);
 //!      println!("This program was authored by: {}", p.author);
+//!  });
+//!
+//!
+//!  program.on(Event::OutputVersion, |_p, _v| {
+//!      println!("A single event can have multiple callbacks, this will get invoked after the one above it.");
 //!  });
 //!
 //!
