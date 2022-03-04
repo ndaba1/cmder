@@ -2,18 +2,23 @@ use std::collections::HashMap;
 
 use super::Program;
 
+/// A simple type to be used to pass callbacks to the .action() method on a command.
 type Listener = fn(&Program, String) -> ();
+
+/// The EventEmitter struct holds all functionality for emitting and receiving all events occurring in the program.
+/// It contains only a single field being the listeners themselves.
 pub struct EventEmitter {
+    /// The listeners field is simply a hashmap with keys containing Event variants and the values containing a vector of listeners. Whenever an event is emitted, The listeners hashmap is queried for any callbacks for the said event and if any are found, then they are executed sequentially.
     listeners: HashMap<Event, Vec<Listener>>,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Event {
-    /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to the listener is the name of the missing argument.
+    /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
     MissingArgument,
 
-    /// This is similar to the `MissingArgument` argument variant except it occurs when the missing argument is for an option. The string value passed is also the name of the missing argument.
+    /// This is similar to the `MissingArgument` argument variant except it occurs when the missing argument is for an option. The string value passed is the name of the missing argument.
     ///The callbacks set override the default behavior
     OptionMissingArgument,
 
@@ -41,6 +46,7 @@ impl EventEmitter {
         }
     }
 
+    /// Receives an event and the actual listener to be set then matches on the listener and adds to the listener to its desired vector.
     pub fn on(&mut self, event: Event, callback: Listener) {
         use Event::*;
 
@@ -69,6 +75,7 @@ impl EventEmitter {
         }
     }
 
+    /// This method is called when events in the program occur. It simply checks for any listeners and then executes them in a sequential manner.
     pub fn emit(&self, program: &Program, event: Event, param: String) {
         if self.listeners.contains_key(&event) {
             let callbacks = self.listeners.get(&event).unwrap();
@@ -79,6 +86,7 @@ impl EventEmitter {
         }
     }
 
+    // This method retrives the vector of existing callbacks if any and pushes the new listener to the vector
     fn add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
         let existing = self.listeners.get(&event);
 
