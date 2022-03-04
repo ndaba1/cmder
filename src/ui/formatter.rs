@@ -1,7 +1,10 @@
 use std::io::Write;
-use termcolor::{Buffer, BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
+use termcolor::{Buffer, BufferWriter, ColorChoice, ColorSpec, WriteColor};
 
-use crate::parser::{Cmd, Flag};
+use crate::{
+    parser::{Cmd, Flag},
+    Theme,
+};
 
 #[macro_export]
 macro_rules! resolve_formatter {
@@ -35,6 +38,8 @@ pub struct Formatter {
     buffer: Buffer,
     #[allow(unused)]
     writer: BufferWriter,
+    #[allow(unused)]
+    theme: Theme,
 }
 
 pub enum FormatterRules {
@@ -52,20 +57,19 @@ pub enum Pattern {
 pub enum Designation {
     Headline,
     Description,
-    Warning,
     Error,
     Other,
     Keyword,
-    Special,
 }
 
 impl Formatter {
-    pub fn new() -> Self {
+    pub fn new(theme: Theme) -> Self {
         let bfwrt = BufferWriter::stderr(ColorChoice::Always);
         let buffer = bfwrt.buffer();
         Self {
             writer: bfwrt,
             buffer,
+            theme,
         }
     }
 
@@ -73,13 +77,11 @@ impl Formatter {
         use Designation::*;
 
         let color = match designation {
-            Headline => Color::Cyan,
-            Description => Color::White,
-            Warning => Color::Yellow,
-            Error => Color::Red,
-            Other => Color::White,
-            Keyword => Color::Yellow,
-            Special => Color::Green,
+            Headline => self.theme.headline,
+            Description => self.theme.description,
+            Error => self.theme.error,
+            Other => self.theme.other,
+            Keyword => self.theme.keyword,
         };
 
         let temp_writer = BufferWriter::stderr(ColorChoice::Always);
@@ -123,7 +125,7 @@ impl Formatter {
 
 impl Default for Formatter {
     fn default() -> Self {
-        Self::new()
+        Self::new(Theme::default())
     }
 }
 
