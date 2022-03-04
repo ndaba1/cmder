@@ -3,16 +3,18 @@
 //! This crate is relatively similar in syntax to the said library and is easy to get started with. It presents a builder interface to work with and can easily be extended to suit your needs.
 //! The crate only offers a builder interface, no derive features, if you're looking such features or something more powerful, you should probably check out `clap`.
 //!
-//! There are only three constructs you need to be aware of when using this crate. Program, Event and Cmd. A program is what you actually create. An instance of your, well program, It contains a few fields, some for metadata such as `version`, `author` and `about` and the most important field, the `cmds` field which is a vector of `Cmds`
+//! There are three main constructs you need to be aware of when using this crate. `Program`, `Event` and `Cmd`. A program is what you actually create. An instance of your, well program, It contains a few fields, some for metadata such as `version`, `author` and `about` and the most important field, the `cmds` field which is a vector of `Cmds`
 //! .
-//! Cmd on the other hand are exactly what they sound like. They contain all the functionality for a given command.
+//! Cmds on the other hand are exactly what they sound like. They contain all the functionality for a given command.
 //! Events are a construct that can be used to extend the program. As will be demonstrated below.
+//!
+//! There are other constructs such as `Themes` and `Patterns` that can also be ussed to extend and customize the default program behavior.
 //!
 //! The following is a full-fleged example of how the crate can be used:
 //!
 //! ```
 //!
-//! use commander_rs::{Program, Event};
+//! use commander_rs::{Program, Event, Pattern, PredefinedThemes};
 //!
 //! let mut program = Program::new();
 //!
@@ -74,6 +76,9 @@
 //!      println!("Your command was not recognized {}", v);
 //!  });
 //!
+//!  program.set_pattern(Pattern::Standard);
+//!
+//!  program.set_theme(PredefinedThemes::Plain);
 //!
 //!  program.parse();
 //! ```
@@ -144,7 +149,7 @@
 //!
 //! ```
 //!
-//! In the above event, the string that gets passed to the callback closure is the actual version of the program. Do not that when you set a custom listener, the default behavior is overriden and you have to perform all the desired actions. This is true for all events apart from the `Event::OutputHelp`. In this special case, the help informartion first gets printed out, then your callbacks are invoked.
+//! In the above event, the string that gets passed to the callback closure is the actual version of the program. Do note that when you set a custom listener, the default behavior is overriden and you have to perform all the desired actions. This is true for all events apart from the `Event::OutputHelp`. In this special case, the help informartion first gets printed out, then your callbacks are invoked.
 //!
 //! All available events are found in the `Event` enum in the `program.rs` module.
 //!
@@ -168,15 +173,11 @@
 //! //...
 //!
 //!
-//! //...
-//!
 //! program.on(Event::OutputHelp, |_p, _v| {
 //!     // Here v is an empty string since there's nothing to pass
 //!     // The help listener acts differently, your callbacks are invoked after the help info is printed out
 //!     println!("This line gets printed out after all the help information")
 //! });
-//!
-//! //...
 //!
 //!
 //! //...
@@ -207,9 +208,70 @@
 //! //...
 //!
 //! ```
+//!
+//! Apart from customizing the default behavior of the program, you can also customize the look and feel by using Patterns and Themes.
+//!
+//! Patterns refer to how your program presents and outputs help information. The default pattern is the `Legacy` pattern which is how most CLI's are presented
+//!
+//! The legacy pattern looks as shown below:
+//!
+//! ```bash
+//! Some awesome prog
+//!
+//! USAGE:
+//!    bolt <COMMAND> [options]
+//!
+//! OPTIONS:
+//!    -h, --help           Output help for the program
+//!    -v, --version        Output the version info for the program
+//!
+//! COMMANDS:
+//!    test | -t            A test command
+//!    new | n              A command for creating new projects.
+//! ```
+//!
+//! The `Standard` pattern appears as shown below:
+//!
+//! ```bash
+//! Some awesome prog
+//!
+//! USAGE:
+//!    bolt <COMMAND> [options]
+//!
+//! OPTIONS:
+//!    -h, --help
+//!    Output help for the program
+//!
+//!    -v, --version
+//!    Output the version info for the program
+//!
+//! COMMANDS:
+//!    test | -t, <app-name> [optional-val]   
+//!    A test command
+//!
+//!    new | n, <app-name>
+//!    A command for creating new projects.
+//! ```
+//!
+//! Themes can also be customized by defining your own color palette to be used when printing out information.
 
+/// The parser modules contains all functionality for parsing arguments at the command level. It contains some submodules all involved in parsing arguments and flags.
 pub mod parser;
+
+/// The program module houses the the program struct and all its associated methods for manipulating and adjusting the program settings to customize the look and feel of your cli. It contains multiple `getters` and `setters` that can be used to get any desired values in the program.
+///
+/// The program module contains all functionality for parsing arguments at the program level. It resolves the target command then passes the cleaned argument to the cmd.parse() method.
 pub mod program;
+
+/// The events module contains the EventEmitter functionality and an enum containing all the possible events that can be emitted. It also contains associative methods to `emit` and `listen` to events in the Event enum. When a new instance of a program is created, the program contains an event_emitter instance.
+pub mod events;
+
+/// A module to house some utilities used by the crate itself.
 pub mod utils;
 
-pub use program::{Event, Program};
+pub mod ui;
+
+pub use events::{Event, EventEmitter};
+pub use program::Program;
+pub use termcolor::Color;
+pub use ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
