@@ -97,3 +97,9 @@ impl EventEmitter {
         }
     }
 }
+
+impl Default for EventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
