@@ -21,7 +21,7 @@ impl Argument {
         }
     }
 
-    pub fn get_required_args(list: &Vec<Self>) -> Vec<Self> {
+    pub fn get_required_args(list: &[Self]) -> Vec<Self> {
         let mut req = vec![];
 
         for arg in list {
@@ -36,15 +36,14 @@ impl Argument {
 
 fn clean_arg(val: &str) -> (String, bool) {
     let delimiters;
-    let required: bool;
 
-    if val.starts_with('<') {
+    let required = if val.starts_with('<') {
         delimiters = vec!['<', '>'];
-        required = true
+        true
     } else {
         delimiters = vec!['[', ']'];
-        required = false
-    }
+        false
+    };
 
     let name = val
         .replace(delimiters[0], "")

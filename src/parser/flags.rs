@@ -46,7 +46,7 @@ impl Flag {
         cmd: &Cmd,
         program: &Program,
         idx: usize,
-        raw_args: &Vec<String>,
+        raw_args: &[String],
     ) -> Option<(String, String)> {
         // assuming raw_args look something like exe test -a -p 1 -x
         let max_len = self.params.len();
@@ -55,7 +55,7 @@ impl Flag {
 
         for (i, val) in self.params.iter().enumerate() {
             let step = i + 1;
-            while i <= max_len {
+            if i <= max_len {
                 // try to find the
                 match raw_args.get(idx + step) {
                     Some(v) => {
@@ -83,7 +83,6 @@ impl Flag {
                         }
                     }
                 }
-                break;
             }
         }
 
@@ -91,7 +90,7 @@ impl Flag {
     }
 }
 
-pub fn resolve_flag(list: &Vec<Flag>, val: &str) -> Option<Flag> {
+pub fn resolve_flag(list: &[Flag], val: &str) -> Option<Flag> {
     let mut flag = None;
 
     for f in list {
