@@ -12,7 +12,9 @@
 //!
 //! The following is a full-fleged example of how the crate can be used:
 //!
-//! ```
+//!
+//! ```should_panic
+//!
 //!
 //! use commander_rs::{Program, Event, Pattern, PredefinedThemes};
 //!
