@@ -86,7 +86,7 @@ impl EventEmitter {
         }
     }
 
-    // This method retrives the vector of existing callbacks if any and pushes the new listener to the vector
+    /// This method retrives the vector of existing callbacks if any and pushes the new listener to the vector
     fn add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
         let existing = self.listeners.get(&event);
 
