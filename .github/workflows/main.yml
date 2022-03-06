@@ -14,14 +14,18 @@ jobs:
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-rs@v1
+      - name: "Setup Rust environment"
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Run tests
       - run: cargo build
       - run: cargo test
 
   deploy:
     env:
-      - CRATES_IO_TOKEN: ${{secrets.CRATES_IO_TOKEN}}
+      CRATES_IO_TOKEN: ${{secrets.CRATES_IO_TOKEN}}
     needs: test
     runs-on: ubuntu-latest
     
