@@ -21,6 +21,13 @@ pub struct Theme {
     pub other: Color,
 }
 
+/// This macro eases the work of creating a new theme, instead of creating the theme struct yourself, you can use the macro to do so.
+/// The macro receives a tuple containing all the desired colors. Do note that the order in which you place your colors is important.
+/// 1. Keywords color
+/// 2. Headlines color
+/// 3. Descriptions color
+/// 4. Errors color
+/// 5. Others' color
 #[macro_export]
 macro_rules! construct_theme {
     ($colors:expr) => {
@@ -52,7 +59,7 @@ impl Theme {
 
     pub fn colorful() -> Self {
         use Color::*;
-        construct_theme!((Blue, Magenta, White, Red, Yellow))
+        construct_theme!((Green, Magenta, Blue, Red, White))
     }
 }
 
