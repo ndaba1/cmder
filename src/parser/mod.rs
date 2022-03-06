@@ -1,4 +1,7 @@
+pub mod args;
 pub mod commands;
+pub mod flags;
 
+pub use args::Argument;
 pub use commands::Cmd;
-pub use commands::Flag;
+pub use flags::{resolve_flag, Flag};

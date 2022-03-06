@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use crate::Event;
-
 use super::super::Program;
+use super::super::{
+    ui::{Designation, Formatter, FormatterRules},
+    Event,
+};
 use super::{resolve_flag, Argument, Flag};
 
 #[derive(Clone)]
@@ -90,7 +92,7 @@ impl Cmd {
     pub fn parse(
         &self,
         program: &Program,
-        raw_args: &Vec<String>,
+        raw_args: &[String],
     ) -> (HashMap<String, String>, HashMap<String, String>) {
         let mut options = HashMap::new();
         let mut values = HashMap::new();
@@ -104,7 +106,7 @@ impl Cmd {
                     program.emit(Event::OutputCommandHelp, self.name.as_str());
                     std::process::exit(0);
                 }
-                let ans = v.get_matches(self, program, idx, &raw_args).unwrap();
+                let ans = v.get_matches(self, program, idx, raw_args).unwrap();
                 options.insert(ans.0.clone(), ans.1.clone());
 
                 flags_and_args.push(a.clone());
@@ -123,7 +125,8 @@ impl Cmd {
         // check if any required inputs are missing and act accordingly if so
         let required = Argument::get_required_args(&self.params);
         let handler = |i: usize| {
-            program.emit(Event::MissingArgument, self.params[i].literal.as_str());
+            let msg = format!("{}, {}", self.name, self.params[i].literal);
+            program.emit(Event::MissingArgument, &msg);
 
             let msg = format!("Missing required argument: {}", self.params[i].literal);
             self.output_command_help(program, &msg);
@@ -155,23 +158,34 @@ impl Cmd {
     }
 
     pub fn output_command_help(&self, prog: &Program, err: &str) {
-        println!("\n{}\n", self.description);
-        println!("USAGE: ");
-        println!("\t{} {} [options]\n", prog.name, self.name);
-        println!("OPTIONS: ");
-        for opt in &self.options {
-            let mut params = String::new();
-            for v in &opt.params {
-                params.push_str(v.literal.as_str());
-                params.push(' ');
-            }
-            println!("\t{}, {} {}", opt.short, opt.long, params);
-            println!("\t{}\n", opt.docstring)
+        let mut fmtr = Formatter::new(prog.theme.clone());
+
+        use Designation::*;
+
+        fmtr.add(Description, &format!("\n{}\n", self.description));
+        fmtr.add(Headline, "\nUSAGE: \n");
+
+        let mut params = String::new();
+        for p in &self.params {
+            params.push_str(p.literal.as_str());
+            params.push(' ');
         }
 
+        fmtr.add(Keyword, &format!("   {} {} ", prog.name, self.name));
+        fmtr.add(Description, &format!("{} [options]\n", params.trim()));
+
+        fmtr.add(Headline, "\nOPTIONS: \n");
+        fmtr.format(
+            FormatterRules::Option(prog.pattern.clone()),
+            Some(self.options.clone()),
+            None,
+        );
+
         if !err.is_empty() {
-            println!("\n{}\n", err)
+            fmtr.add(Error, &format!("\nError: {}\n", err))
         }
+
+        fmtr.print();
     }
 }
 
@@ -184,12 +198,7 @@ impl Cmd {
             params: vec![],
             alias: "".to_owned(),
             description: "".to_owned(),
-            options: vec![Flag {
-                short: "-h".to_owned(),
-                long: "--help".to_owned(),
-                params: vec![],
-                docstring: "Displays the help command".to_owned(),
-            }],
+            options: vec![Flag::new("-h --help", "Output help for the program")],
             callback: |_cmd, _args| {},
         }
     }
@@ -218,12 +227,7 @@ mod test {
             }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),
-            options: vec![Flag {
-                short: "-h".to_string(),
-                long: "--help".to_string(),
-                params: vec![],
-                docstring: "Displays the help command".to_string(),
-            }],
+            options: vec![Flag::new("-h --help", "Output help for the program")],
         };
 
         let mut auto_cmd = Cmd::new();
@@ -231,7 +235,7 @@ mod test {
             .command("test <app-name>")
             .alias("t")
             .describe("Some test")
-            .option("-h --help", "Displays the help command")
+            .option("-h --help", "Output help for the program")
             .action(|_cmd, _args| {});
 
         assert_eq!(
