@@ -6,7 +6,6 @@ use crate::{
     Theme,
 };
 
-#[macro_export]
 macro_rules! resolve_formatter {
     ($fmtr:expr, $type:ty, $cb:ident, $vals:expr, $ptrn:expr) => {
         let vals = $vals;
@@ -28,11 +27,17 @@ macro_rules! resolve_formatter {
                 Pattern::Standard => val = standard_format_output(&value, &docstring),
                 Pattern::Custom(ref _str) => val = standard_format_output(&value, &docstring),
             }
-            $fmtr.add(Designation::Keyword, &format!("\t{}", val.0));
+            $fmtr.add(Designation::Keyword, &format!("   {}", val.0));
             $fmtr.add(Designation::Description, &format!("{}\n", val.1));
         }
     };
 }
+
+// macro_rules! construct_pattern {
+//     ($body:expr) => {
+
+//     };
+// }
 
 pub struct Formatter {
     buffer: Buffer,
@@ -51,7 +56,15 @@ pub enum FormatterRules {
 pub enum Pattern {
     Legacy,
     Standard,
-    Custom(String),
+    Custom(CustomPattern),
+}
+
+#[derive(Debug, Clone)]
+pub struct CustomPattern {
+    #[allow(unused)]
+    options_pattern: String,
+    #[allow(unused)]
+    cmds_pattern: String,
 }
 
 pub enum Designation {
@@ -146,8 +159,10 @@ fn standard_format_output(pre: &str, leading: &str) -> (String, String) {
     let mut str_buff = String::new();
     str_buff.push_str(&format!("{}\n", &pre));
 
-    (str_buff, format!("\t{}\n", leading))
+    (str_buff, format!("   {}\n", leading))
 }
+
+// fn custom_format_output() -> (String, String) {}
 
 fn option_iterator(flags: &[Flag], ptrn: &Pattern) -> Vec<(String, String)> {
     let mut vals = vec![];
@@ -158,14 +173,12 @@ fn option_iterator(flags: &[Flag], ptrn: &Pattern) -> Vec<(String, String)> {
             params.push(' ');
         }
 
-        let value;
-
-        match &ptrn {
+        let value = match &ptrn {
             Pattern::Custom(_syn) => {
-                value = format!("{}, {} {}", opt.short, opt.long, params.trim())
+                format!("{}, {} {}", opt.short, opt.long, params.trim())
             }
-            _ => value = format!("{}, {} {}", opt.short, opt.long, params.trim()),
-        }
+            _ => format!("{}, {} {}", opt.short, opt.long, params.trim()),
+        };
 
         vals.push((value, opt.docstring.clone()));
     }
@@ -183,12 +196,11 @@ fn command_iterator(cmds: &[Cmd], ptrn: &Pattern) -> Vec<(String, String)> {
             params.push(' ');
         }
 
-        let value;
-        match &ptrn {
-            &Pattern::Legacy => value = format!("{} | {}", cmd.name, cmd.alias),
-            &Pattern::Standard => value = format!("{} | {}, {}", cmd.name, cmd.alias, params),
-            &Pattern::Custom(_syn) => value = format!("{} | {}", cmd.name, cmd.alias),
-        }
+        let value = match &ptrn {
+            Pattern::Legacy => format!("{} | {}", cmd.name, cmd.alias),
+            Pattern::Standard => format!("{} | {}, {}", cmd.name, cmd.alias, params),
+            Pattern::Custom(_syn) => format!("{} | {}", cmd.name, cmd.alias),
+        };
 
         vals.push((value, cmd.description.clone()))
     }
