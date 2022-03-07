@@ -165,11 +165,16 @@
 //! //...
 //!
 //! program.on(Event::MissingArgument, |p, v| {
-//!     // The value v is the name of the missing argument
-//!     let msg = format!("You are missing a required argument: {}", v);
-//!     
-//!     // We can then output help information and pass an error msg to be displayed
-//!     p.output_help(&msg);
+//!     // the value returned contains the name of the resolved command, and the name of the missing argument
+//!     let params: Vec<_> = v.split(',').collect();
+//!
+//!     // the missing argument name is the second value
+//!     let msg = format!("You are missing a required argument: {}", params[1]);
+//!
+//!     // you can use the `get_cmd` method to get a ref to the command and invoke the `output_command_help`
+//!     // this is equivalent to the default behavior
+//!     let cmd = p.get_cmd(&params[0]).unwrap();
+//!     cmd.output_command_help(p, &msg);
 //! });
 //!
 //! //...
