@@ -110,12 +110,12 @@ impl Program {
         }
 
         match args[0].to_lowercase().as_str() {
-            val if val.starts_with('-') => self.get_matches(val),
             val if self.cmds.iter().any(|c| c.name == val || c.alias == val) => {
                 let cmd = self.get_cmd(val).unwrap();
                 let (vals, opts) = cmd.parse(self, &args[1..].to_vec());
                 (cmd.callback)(vals, opts);
             }
+            val if val.starts_with('-') => self.get_matches(val),
             val => {
                 self.emit(Event::UnknownCommand, val);
                 let msg = format!("Unknown command \"{}\"", val);
