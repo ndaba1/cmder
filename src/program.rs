@@ -1,8 +1,5 @@
-use crate::parser::resolve_flag;
-use crate::{PredefinedThemes, Theme};
-
-use super::parser::{Cmd, Flag};
-use super::ui::{Designation, Formatter, FormatterRules, Pattern};
+use super::parser::{resolve_flag, Cmd, Flag};
+use super::ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
 use super::{Event, EventEmitter};
 
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program

@@ -11,6 +11,7 @@ pub struct Argument {
 }
 
 impl Argument {
+    /// Takes in a string literal as input and returns a new argument instance after resolving all the struct fields of an argument by calling the `clean_arg` function.
     pub fn new(value: &str) -> Self {
         let (name, required) = clean_arg(value);
 
@@ -21,6 +22,7 @@ impl Argument {
         }
     }
 
+    /// A method that takes in a vector of arguments, determines and returns which of the arguments are required.
     pub fn get_required_args(list: &[Self]) -> Vec<Self> {
         let mut req = vec![];
 
@@ -34,6 +36,7 @@ impl Argument {
     }
 }
 
+/// Cleans an argument by removing any brackets and determining whether the argument is required is not.
 fn clean_arg(val: &str) -> (String, bool) {
     let delimiters;
 
