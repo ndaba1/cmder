@@ -68,6 +68,12 @@ impl Program {
         self
     }
 
+    /// A method to override the program name displayed to users when printing out help information. This method can be used when the name of the executable is different from the name to be displayed.
+    pub fn bin_name(&mut self, name: &str) -> &mut Program {
+        self.name = name.to_string();
+        self
+    }
+
     /// A method that receives a mutable ref to a program and a description, and mutates the about field in the program struct then returns another mutable ref to the program
     pub fn description(&mut self, desc: &str) -> &mut Program {
         self.about = desc.to_string();
@@ -83,14 +89,18 @@ impl Program {
     ///
     /// The behavior of this function can be overriden by using the .bin_name() method. The method can be used when the name to be displayed to the users is different from the actual name of the executable binary.
     fn get_target_name(&self, val: String) -> String {
-        if cfg!(windows) {
-            let path_buff: Vec<&str> = val.split('\\').collect();
-            let target = path_buff.last().unwrap();
-            target.replace(".exe", "")
+        if self.name.is_empty() {
+            if cfg!(windows) {
+                let path_buff: Vec<&str> = val.split('\\').collect();
+                let target = path_buff.last().unwrap();
+                target.replace(".exe", "")
+            } else {
+                let path_buff: Vec<&str> = val.split('/').collect();
+                let target = path_buff.last().unwrap();
+                target.to_string()
+            }
         } else {
-            let path_buff: Vec<&str> = val.split('/').collect();
-            let target = path_buff.last().unwrap();
-            target.to_string()
+            self.name.clone()
         }
     }
 
