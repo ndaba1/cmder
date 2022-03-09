@@ -276,6 +276,7 @@ pub mod events;
 /// A module to house some utilities used by the crate itself.
 pub mod utils;
 
+/// The UI module houses the formatter module that is used to print to stdout and the themes module used to construct and define new themes.
 pub mod ui;
 
 pub use events::{Event, EventEmitter};

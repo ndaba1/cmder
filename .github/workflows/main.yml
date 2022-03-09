@@ -30,11 +30,24 @@ jobs:
     runs-on: ubuntu-latest
     
     steps: 
-      - uses: actions/checkout@v2
-      - run: echo $CRATES_IO_TOKEN | cargo login 
-      - run: |
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
-          # todo: implemennt github release
+      - name: Semantic Versioning
+        id: versioning
+        uses: paulhatch/semantic-version@v4.0.2
+        with:
+          branch: main
+          tag_prefix: "v"
+          major_pattern: "BREAKING CHANGE:"
+          minor_pattern: "feat:"
+          format: "v${major}.${minor}.${patch}-prerelease${increment}"
 
-          cargo publish
+      - name: Publish package
+        uses: katyo/publish-crates@v1
+        with:
+          registry-token: $CRATES_IO_TOKEN
 
+      

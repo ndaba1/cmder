@@ -56,7 +56,7 @@ impl Flag {
         for (i, val) in self.params.iter().enumerate() {
             let step = i + 1;
             if i <= max_len {
-                // try to find the
+                // try to any args input values
                 match raw_args.get(idx + step) {
                     Some(v) => {
                         result = if val.required {
