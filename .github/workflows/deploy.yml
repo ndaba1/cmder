@@ -1,4 +1,4 @@
-name: Commander-rs CI
+name: Commander-rs CI workflow
 
 on:
   push:
@@ -19,8 +19,6 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Run tests
-      - run: cargo build
       - run: cargo test
 
   deploy:
