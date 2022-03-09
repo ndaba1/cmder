@@ -1,9 +1,9 @@
 [package]
-name = "commander-rs"
+name = "cmder"
 version = "0.1.0"
 edition = "2021"
 description="A simple, lightweight, command line argument parser for rust codebases"
-repository="https://github.com/ndaba1/commander-rs.git"
+repository="https://github.com/ndaba1/cmder.git"
 license="MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

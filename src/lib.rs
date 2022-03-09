@@ -16,7 +16,7 @@
 //! ```should_panic
 //!
 //!
-//! use commander_rs::{Program, Event, Pattern, PredefinedThemes};
+//! use cmder::{Program, Event, Pattern, PredefinedThemes};
 //!
 //! let mut program = Program::new();
 //!
@@ -136,7 +136,7 @@
 //! For instance, when the -v flag is passed to the program, the program simply prints the version and exits. This can easily be modified in the following way:
 //!
 //! ```
-//! use commander_rs::{Event, Program};
+//! use cmder::{Event, Program};
 //!
 //! let mut program = Program::new();
 //!
@@ -158,7 +158,7 @@
 //! Here are some more examples of using event listeners:
 //!
 //! ```
-//! use commander_rs::{Event, Program};
+//! use cmder::{Event, Program};
 //!
 //! let mut program = Program::new();
 //!

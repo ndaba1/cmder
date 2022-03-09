@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "commander-rs"
+name = "cmder"
 version = "0.1.0"
 dependencies = [
  "termcolor",
