@@ -1,4 +1,4 @@
-name: Commander-rs CI workflow
+name: cmder-ci-workflow
 
 on:
   push:
