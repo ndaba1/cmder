@@ -23,7 +23,6 @@
 //! program.version("0.20").description("Some awesome cli");
 //!
 //! program
-//!     .add_cmd()
 //!     .command("test <app-name> [optional-val]")
 //!     .alias("-t")
 //!     .describe("A test command")
@@ -39,7 +38,6 @@
 //!     .build(&mut program);
 //!
 //! program
-//!     .add_cmd()
 //!     .command("new <app-name>")
 //!     .alias("n")
 //!     .describe("A command for creating new projects.")
