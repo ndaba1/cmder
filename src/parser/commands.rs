@@ -84,7 +84,8 @@ impl Cmd {
     /// Receives the instance of the program as input and pushes the constructed command to the `cmds` field of the program struct
     /// This should be the last method to be chained as it returns a unit type.
     pub fn build(&mut self, prog: &mut Program) {
-        prog.cmds.push(self.clone())
+        // TODO: avoid mutating the cmds field like this
+        prog.add_cmd(self.to_owned());
     }
 
     /// This is a fairly involved method. It takes in the instance of the program, as well as the arguments passed to a command and parses them, to return two hashmaps, one containg the params of the command and their values and another containing the flags passed to the command and their resolved values if any.
@@ -171,7 +172,10 @@ impl Cmd {
             params.push(' ');
         }
 
-        fmtr.add(Keyword, &format!("   {} {} ", prog.name, self.name));
+        fmtr.add(
+            Keyword,
+            &format!("   {} {} ", prog.get_bin_name(), self.name),
+        );
         fmtr.add(Description, &format!("{} [options]\n", params.trim()));
 
         fmtr.add(Headline, "\nOPTIONS: \n");

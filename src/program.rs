@@ -5,25 +5,25 @@ use super::{Event, EventEmitter};
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
 pub struct Program {
     /// Stores all the commands that your program contains. You won't have to deal with this field directly rather by calling specific methods that allow you to build commands and add them to this vector
-    pub cmds: Vec<Cmd>,
+    cmds: Vec<Cmd>,
 
     /// Hold the version information of your program, It's gets printed out when the -v | --version flag is passed as an arg
-    pub version: String,
+    version: String,
 
     /// Optional metadata that contains the author of the program, also gets printed out when the -v flag is passed to the program
-    pub author: String,
+    author: String,
 
     /// A short description of what the program does, usually the programs tagline. It gets printed out when the version and help flags are passed
-    pub about: String,
+    about: String,
+
+    /// The name of the program. It is obtained from the args passed to the cli and is used when printing help information, or any other cases that require the program name
+    name: String,
 
     /// A vector containing the flags/swicthed that can be passed to the root instance of the program and not the subcommands
-    pub options: Vec<Flag>,
+    options: Vec<Flag>,
 
     /// An instance of the EventEmitter struct that the program can use to emit and listen to events. The program also contains utility functions to interface with the event_emitter which it contains.
     pub event_emitter: EventEmitter,
-
-    /// The name of the program. It is obtained from the args passed to the cli and is used when printing help information, or any other cases that require the program name
-    pub name: String,
 
     /// Refers to the pattern to be used by the proram when printing to stdout. Patterns can be selected from the default ones or you can create your own pattern.
     /// This field is customized by calling the `set_pattern` method
@@ -59,10 +59,20 @@ impl Program {
         self
     }
 
+    /// A getter for the version information for the program instance
+    pub fn get_version(&self) -> &str {
+        &self.version
+    }
+
     /// A method for setting the author information of the program, it acts in the same manner as the version method.
     pub fn author(&mut self, auth: &str) -> &mut Program {
         self.author = auth.to_string();
         self
+    }
+
+    /// A getter for the author information
+    pub fn get_author(&self) -> &str {
+        &self.author
     }
 
     /// A method to override the program name displayed to users when printing out help information. This method can be used when the name of the executable is different from the name to be displayed.
@@ -71,15 +81,35 @@ impl Program {
         self
     }
 
+    /// Returns the configured name of the executable
+    pub fn get_bin_name(&self) -> &str {
+        &self.name
+    }
+
     /// A method that receives a mutable ref to a program and a description, and mutates the about field in the program struct then returns another mutable ref to the program
     pub fn description(&mut self, desc: &str) -> &mut Program {
         self.about = desc.to_string();
         self
     }
 
+    /// A getter that returns the description of the program
+    pub fn get_description(&self) -> &str {
+        &self.about
+    }
+
     /// A simple method that takes in a ref to self allowing it to be an associated method, then returns a new Cmd struct that can be manipulated and when the build method is called, the constructed command is pushed onto the cmds field
-    pub fn add_cmd(&self) -> Cmd {
-        Cmd::new()
+    pub fn add_cmd(&mut self, cmd: Cmd) {
+        self.cmds.push(cmd);
+    }
+
+    /// Returns a reference to the vector containing all the commands configured into the program.
+    pub fn get_all_cmds(&self) -> &Vec<Cmd> {
+        &self.cmds
+    }
+
+    /// Returns a reference to the vector containing all the options configured into the program.
+    pub fn get_options(&self) -> &Vec<Flag> {
+        &self.options
     }
 
     /// A simpler way to register a command to the program. Instead of chaining the .add_cmd() method and the command method, this method does it for you.
@@ -271,8 +301,7 @@ mod test {
     fn test_add_cmd_func() {
         let mut prog = Program::new();
 
-        prog.add_cmd()
-            .command("name <some-name>")
+        prog.command("name <some-name>")
             .alias("n")
             .describe("some random command")
             .build(&mut prog);
