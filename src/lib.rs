@@ -63,7 +63,7 @@
 //!
 //!  program.on(Event::OutputVersion, |p, v| {
 //!      println!("You are using version {} of my program", v);
-//!      println!("This program was authored by: {}", p.author);
+//!      println!("This program was authored by: {}", p.get_author());
 //!  });
 //!
 //!
@@ -142,7 +142,7 @@
 //!
 //! program.on(Event::OutputVersion, |p, v| {
 //!     println!("You are using version {} of my program", v);
-//!     println!("This program was authored by: {}", p.author);
+//!     println!("This program was authored by: {}", p.get_author());
 //! });
 //!
 //! //...
