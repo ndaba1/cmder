@@ -82,6 +82,13 @@ impl Program {
         Cmd::new()
     }
 
+    /// A simpler way to register a command to the program. Instead of chaining the .add_cmd() method and the command method, this method does it for you.
+    pub fn command(&self, val: &str) -> Cmd {
+        let mut cmd = Cmd::new();
+        cmd.command(val);
+        cmd
+    }
+
     /// A private utility function that receives the first argument passed to the program, being the path to the binary file and extracts the name of the executable to be set as the name of the program and utilized when printing out help information.
     ///
     /// The behavior of this function can be overriden by using the .bin_name() method. The method can be used when the name to be displayed to the users is different from the actual name of the executable binary.
