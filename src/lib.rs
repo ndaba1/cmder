@@ -51,8 +51,10 @@
 //!
 //!
 //!  program.on(Event::MissingArgument, |p, v| {
-//!      let msg = format!("You are missing a required argument: {}", v);
-//!      p.output_help(&msg);
+//!     let params: Vec<_> = v.split(',').collect();
+//!     let msg = format!("You are missing a required argument: {}", params[1]);
+//!     let cmd = p.get_cmd(params[0]).unwrap();
+//!     cmd.output_command_help(p, &msg);
 //!  });
 //!
 //!
