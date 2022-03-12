@@ -171,7 +171,7 @@
 //!
 //!     // you can use the `get_cmd` method to get a ref to the command and invoke the `output_command_help`
 //!     // this is equivalent to the default behavior
-//!     let cmd = p.get_cmd(&params[0]).unwrap();
+//!     let cmd = p.get_cmd(params[0]).unwrap();
 //!     cmd.output_command_help(p, &msg);
 //! });
 //!
