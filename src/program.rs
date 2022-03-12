@@ -154,7 +154,11 @@ impl Program {
         }
 
         match args[0].to_lowercase().as_str() {
-            val if self.cmds.iter().any(|c| c.name == val || c.alias == val) => {
+            val if self
+                .cmds
+                .iter()
+                .any(|c| c.get_name() == val || c.get_alias() == val) =>
+            {
                 let cmd = self.get_cmd(val).unwrap();
                 let (vals, opts) = cmd.parse(self, &args[1..].to_vec());
                 (cmd.callback)(vals, opts);
@@ -187,7 +191,9 @@ impl Program {
 
     /// A simple method that tries to find a command from a given string slice that can either be the name of the command or its alias.
     pub fn get_cmd(&self, val: &str) -> Option<&Cmd> {
-        self.cmds.iter().find(|c| c.alias == val || c.name == val)
+        self.cmds
+            .iter()
+            .find(|c| c.get_alias() == val || c.get_name() == val)
     }
 
     /// This method is used to set event listeners. It doesn't set the listeners itself but rather calls a similar method on the program's configured event emitter which then registers the listener.

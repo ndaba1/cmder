@@ -191,18 +191,18 @@ fn command_iterator(cmds: &[Cmd], ptrn: &Pattern) -> Vec<(String, String)> {
 
     for cmd in cmds {
         let mut params = String::new();
-        for a in &cmd.params {
+        for a in cmd.get_cmd_input() {
             params.push_str(a.literal.as_str());
             params.push(' ');
         }
 
         let value = match &ptrn {
-            Pattern::Legacy => format!("{} | {}", cmd.name, cmd.alias),
-            Pattern::Standard => format!("{} | {}, {}", cmd.name, cmd.alias, params),
-            Pattern::Custom(_syn) => format!("{} | {}", cmd.name, cmd.alias),
+            Pattern::Legacy => format!("{} | {}", cmd.get_name(), cmd.get_alias()),
+            Pattern::Standard => format!("{} | {}, {}", cmd.get_name(), cmd.get_alias(), params),
+            Pattern::Custom(_syn) => format!("{} | {}", cmd.get_name(), cmd.get_alias()),
         };
 
-        vals.push((value, cmd.description.clone()))
+        vals.push((value, cmd.get_description().to_owned()))
     }
 
     vals
