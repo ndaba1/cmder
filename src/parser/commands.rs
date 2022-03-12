@@ -12,19 +12,19 @@ use super::{resolve_flag, Argument, Flag};
 /// Each of the said fields are manipulated via implementations of the struct each of which return the struct allowing for methods to be chained continously.
 pub struct Cmd {
     /// The actual name of the command
-    pub name: String,
+    name: String,
 
     /// Any parameters, optional or otherwise, to be passed into the command
-    pub params: Vec<Argument>,
+    params: Vec<Argument>,
 
     /// An alias assigned to the command, usually the first letter of the command but not necessarily
-    pub alias: String,
+    alias: String,
 
     /// The description of the command is what gets printed out when the -h | --help flag is passed
-    pub description: String,
+    description: String,
 
     /// Options refer to the flags/switches that your command can receive
-    pub options: Vec<Flag>,
+    options: Vec<Flag>,
 
     /// The callback is a closure that takes in two hashmaps, each of which contain string keys and values, the first hashmap contains all the values of the params to the given command, while the second hashmap contains the metadata for any flags passed to the command and their values if any.
     pub callback: fn(HashMap<String, String>, HashMap<String, String>) -> (),
@@ -49,6 +49,26 @@ impl Cmd {
         self.alias = val.to_owned();
 
         self
+    }
+
+    pub fn get_alias(&self) -> &str {
+        &self.alias
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_description(&self) -> &str {
+        &self.description
+    }
+
+    pub fn get_cmd_options(&self) -> &Vec<Flag> {
+        &self.options
+    }
+
+    pub fn get_cmd_input(&self) -> &Vec<Argument> {
+        &self.params
     }
 
     /// The describe command is passed the description of the command, which gets printed out when the help flag is passed
