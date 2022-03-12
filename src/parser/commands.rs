@@ -51,22 +51,27 @@ impl Cmd {
         self
     }
 
+    /// A getter that returns the alias of a given command
     pub fn get_alias(&self) -> &str {
         &self.alias
     }
 
+    /// A simple method to return the configured name of a command
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    /// This method simply returns the configured description of a command
     pub fn get_description(&self) -> &str {
         &self.description
     }
 
+    /// Returns all the configured options of a command
     pub fn get_cmd_options(&self) -> &Vec<Flag> {
         &self.options
     }
 
+    /// This method is similar to the `get_cmd_options` except it returns the params of a command, both required and optional ones
     pub fn get_cmd_input(&self) -> &Vec<Argument> {
         &self.params
     }
