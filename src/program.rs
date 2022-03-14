@@ -319,7 +319,7 @@ mod test {
 
         prog.command("name <some-name>")
             .alias("n")
-            .describe("some random command")
+            .description("some random command")
             .build(&mut prog);
 
         assert_eq!(prog.cmds.len(), 1);

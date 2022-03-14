@@ -77,7 +77,7 @@ impl Cmd {
     }
 
     /// The describe command is passed the description of the command, which gets printed out when the help flag is passed
-    pub fn describe(&mut self, desc: &str) -> &mut Cmd {
+    pub fn description(&mut self, desc: &str) -> &mut Cmd {
         self.description = desc.to_owned();
 
         self
@@ -263,7 +263,7 @@ mod test {
         auto_cmd
             .command("test <app-name>")
             .alias("t")
-            .describe("Some test")
+            .description("Some test")
             .option("-h --help", "Output help for the program")
             .action(|_cmd, _args| {});
 
