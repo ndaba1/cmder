@@ -184,7 +184,7 @@ impl Cmd {
     }
 
     pub fn output_command_help(&self, prog: &Program, err: &str) {
-        let mut fmtr = Formatter::new(prog.theme.clone());
+        let mut fmtr = Formatter::new(prog.get_theme().to_owned());
 
         use Designation::*;
 
@@ -205,7 +205,7 @@ impl Cmd {
 
         fmtr.add(Headline, "\nOPTIONS: \n");
         fmtr.format(
-            FormatterRules::Option(prog.pattern.clone()),
+            FormatterRules::Option(prog.get_pattern().to_owned()),
             Some(self.options.clone()),
             None,
         );
