@@ -23,15 +23,15 @@ pub struct Program {
     options: Vec<Flag>,
 
     /// An instance of the EventEmitter struct that the program can use to emit and listen to events. The program also contains utility functions to interface with the event_emitter which it contains.
-    pub event_emitter: EventEmitter,
+    event_emitter: EventEmitter,
 
     /// Refers to the pattern to be used by the proram when printing to stdout. Patterns can be selected from the default ones or you can create your own pattern.
     /// This field is customized by calling the `set_pattern` method
-    pub pattern: Pattern,
+    pattern: Pattern,
 
     /// Similar to the pattern field in that they are both concerned with stdout. The theme hover differs in that it refers to the color schemes to be used by the program.
     /// There is a default theme, some predefined themes and you can also create your own custom theme.
-    pub theme: Theme,
+    theme: Theme,
 }
 
 impl Program {
@@ -105,6 +105,16 @@ impl Program {
     /// Returns a reference to the vector containing all the commands configured into the program.
     pub fn get_all_cmds(&self) -> &Vec<Cmd> {
         &self.cmds
+    }
+
+    /// A getter for the theme of the program
+    pub fn get_theme(&self) -> &Theme {
+        &self.theme
+    }
+
+    /// A getter for the configured pattern of the program
+    pub fn get_pattern(&self) -> &Pattern {
+        &self.pattern
     }
 
     /// Returns a reference to the vector containing all the options configured into the program.
