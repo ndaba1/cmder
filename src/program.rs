@@ -59,20 +59,10 @@ impl Program {
         self
     }
 
-    /// A getter for the version information for the program instance
-    pub fn get_version(&self) -> &str {
-        &self.version
-    }
-
     /// A method for setting the author information of the program, it acts in the same manner as the version method.
     pub fn author(&mut self, auth: &str) -> &mut Program {
         self.author = auth.to_string();
         self
-    }
-
-    /// A getter for the author information
-    pub fn get_author(&self) -> &str {
-        &self.author
     }
 
     /// A method to override the program name displayed to users when printing out help information. This method can be used when the name of the executable is different from the name to be displayed.
@@ -81,25 +71,42 @@ impl Program {
         self
     }
 
-    /// Returns the configured name of the executable
-    pub fn get_bin_name(&self) -> &str {
-        &self.name
-    }
-
     /// A method that receives a mutable ref to a program and a description, and mutates the about field in the program struct then returns another mutable ref to the program
     pub fn description(&mut self, desc: &str) -> &mut Program {
         self.about = desc.to_string();
         self
     }
 
-    /// A getter that returns the description of the program
-    pub fn get_description(&self) -> &str {
-        &self.about
+    /// A simpler way to register a command to the program. Instead of chaining the .add_cmd() method and the command method, this method does it for you.
+    pub fn command(&self, val: &str) -> Cmd {
+        let mut cmd = Cmd::new();
+        cmd.command(val);
+        cmd
     }
 
     /// A simple method that takes in a ref to self allowing it to be an associated method, then returns a new Cmd struct that can be manipulated and when the build method is called, the constructed command is pushed onto the cmds field
     pub fn add_cmd(&mut self, cmd: Cmd) {
         self.cmds.push(cmd);
+    }
+
+    /// A getter for the version information for the program instance
+    pub fn get_version(&self) -> &str {
+        &self.version
+    }
+
+    /// A getter for the author information
+    pub fn get_author(&self) -> &str {
+        &self.author
+    }
+
+    /// Returns the configured name of the executable
+    pub fn get_bin_name(&self) -> &str {
+        &self.name
+    }
+
+    /// A getter that returns the description of the program
+    pub fn get_description(&self) -> &str {
+        &self.about
     }
 
     /// Returns a reference to the vector containing all the commands configured into the program.
@@ -120,13 +127,6 @@ impl Program {
     /// Returns a reference to the vector containing all the options configured into the program.
     pub fn get_options(&self) -> &Vec<Flag> {
         &self.options
-    }
-
-    /// A simpler way to register a command to the program. Instead of chaining the .add_cmd() method and the command method, this method does it for you.
-    pub fn command(&self, val: &str) -> Cmd {
-        let mut cmd = Cmd::new();
-        cmd.command(val);
-        cmd
     }
 
     /// A private utility function that receives the first argument passed to the program, being the path to the binary file and extracts the name of the executable to be set as the name of the program and utilized when printing out help information.
