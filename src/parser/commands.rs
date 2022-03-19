@@ -227,7 +227,10 @@ impl Cmd {
             params: vec![],
             alias: "".to_owned(),
             description: "".to_owned(),
-            options: vec![Flag::new("-h --help", "Output help for the program")],
+            options: vec![Flag::new(
+                "-h --help",
+                "Output help information for a command",
+            )],
             callback: |_cmd, _args| {},
         }
     }
@@ -256,7 +259,10 @@ mod test {
             }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),
-            options: vec![Flag::new("-h --help", "Output help for the program")],
+            options: vec![Flag::new(
+                "-h --help",
+                "Output help information for a command",
+            )],
         };
 
         let mut auto_cmd = Cmd::new();
@@ -264,7 +270,7 @@ mod test {
             .command("test <app-name>")
             .alias("t")
             .description("Some test")
-            .option("-h --help", "Output help for the program")
+            .option("-h --help", "Output help information for a command")
             .action(|_cmd, _args| {});
 
         assert_eq!(

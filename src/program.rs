@@ -47,7 +47,7 @@ impl Program {
             version: "0.1.0".to_owned(),
             event_emitter: EventEmitter::new(),
             options: vec![
-                Flag::new("-h --help", "Output help for the program"),
+                Flag::new("-h --help", "Output help information for the program"),
                 Flag::new("-v --version", "Output the version info for the program"),
             ],
         }
