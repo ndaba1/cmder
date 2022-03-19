@@ -25,7 +25,7 @@
 //! program
 //!     .command("test <app-name> [optional-val]")
 //!     .alias("-t")
-//!     .describe("A test command")
+//!     .description("A test command")
 //!     .option("-a --all", "Test everything in the app")
 //!     .option(
 //!         "-p --priority-level <priority-value>",
@@ -40,7 +40,7 @@
 //! program
 //!     .command("new <app-name>")
 //!     .alias("n")
-//!     .describe("A command for creating new projects.")
+//!     .description("A command for creating new projects.")
 //!     .option("-g --git", " Whether to initialized the project with git.")
 //!     .option("-s  --skip ", " Skips installing the dependencies")
 //!      .action(|vals, config| {
