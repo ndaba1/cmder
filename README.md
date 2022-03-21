@@ -6,12 +6,6 @@
 <img alt="Crates.io" src="https://img.shields.io/crates/v/cmder">
 </p>
 
-Add this to your Cargo.toml
-```rust
-[dependencies]
-cmder="0.1.0"
-```
-
 This crate is fairly similar to the javascript package `commander-js`. To get started, create an instance of the program struct and use it to add commands. The following is an example:
 
 ```rust
@@ -24,10 +18,9 @@ let mut program = Program::new();
         .author("Author's name");
 
     program
-        .add_cmd()
         .command("test <app-name>")
         .alias("t")
-        .describe("A test command")
+        .description("A test command")
         .option("-s --skip", "Skip checking/installing the dependencies")
         .option("-p --priority", "The priority to use when testing apps")
         .action(|vals, opts| {
@@ -43,7 +36,7 @@ You can also override the default behavior of the program. You can edit the Them
 ```rust
 program.on(Event::OutputVersion, |p, v| {
         println!("You are using version {} of my program", v);
-        println!("This program was authored by: {}", p.author);
+        println!("This program was authored by: {}", p.get_author();
     });
 ```
 
