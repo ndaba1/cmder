@@ -12,22 +12,24 @@ This crate is fairly similar to the javascript package `commander-js`. To get st
 
 let mut program = Program::new();
 
-    program
-        .version("0.1.0")
-        .description("An example CLI")
-        .author("Author's name");
+program
+    .version("0.1.0")
+    .description("An example CLI")
+    .author("Author's name");
 
-    program
-        .command("test <app-name>")
-        .alias("t")
-        .description("A test command")
-        .option("-s --skip", "Skip checking/installing the dependencies")
-        .option("-p --priority", "The priority to use when testing apps")
-        .action(|vals, opts| {
-            dbg!(vals);
-            dbg!(opts);
-        })
-        .build(&mut program);
+program
+    .command("test <app-name>")
+    .alias("t")
+    .description("A test command")
+    .option("-s --skip", "Skip checking/installing the dependencies")
+    .option("-p --priority", "The priority to use when testing apps")
+    .action(|vals, opts| {
+        dbg!(vals);
+        dbg!(opts);
+    })
+    .build(&mut program);
+
+program.parse();
 
 ```
 
@@ -41,3 +43,7 @@ program.on(Event::OutputVersion, |p, v| {
 ```
 
 Refer to docs.rs for full documentation on the crate.
+
+## Contributing
+
+All contributions are welcome and highly appreciated!
