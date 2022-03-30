@@ -2,7 +2,7 @@ use std::io::Write;
 use termcolor::{Buffer, BufferWriter, ColorChoice, ColorSpec, WriteColor};
 
 use crate::{
-    parser::{Cmd, Flag},
+    parser::{Argument, Cmd, Flag},
     Theme,
 };
 
@@ -50,6 +50,7 @@ pub struct Formatter {
 pub enum FormatterRules {
     Option(Pattern),
     Cmd(Pattern),
+    Args(Pattern),
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +120,7 @@ impl Formatter {
         rule: FormatterRules,
         flags: Option<Vec<Flag>>,
         cmds: Option<Vec<Cmd>>,
+        args: Option<Vec<Argument>>,
     ) {
         match rule {
             FormatterRules::Cmd(ptrn) => {
@@ -126,6 +128,9 @@ impl Formatter {
             }
             FormatterRules::Option(ptrn) => {
                 resolve_formatter!(self, Flag, option_iterator, flags.unwrap(), ptrn);
+            }
+            FormatterRules::Args(ptrn) => {
+                resolve_formatter!(self, Argument, args_iterator, args.unwrap(), ptrn);
             }
         }
     }
@@ -203,6 +208,20 @@ fn command_iterator(cmds: &[Cmd], ptrn: &Pattern) -> Vec<(String, String)> {
         };
 
         vals.push((value, cmd.get_description().to_owned()))
+    }
+
+    vals
+}
+
+fn args_iterator(args: &[Argument], ptrn: &Pattern) -> Vec<(String, String)> {
+    let mut vals = vec![];
+    for arg in args {
+        let value = match &ptrn {
+            Pattern::Legacy => format!("{}", arg.name),
+            _ => format!("{}", arg.name),
+        };
+
+        vals.push((value, arg.description.clone().unwrap()))
     }
 
     vals
