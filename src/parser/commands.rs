@@ -38,7 +38,7 @@ impl Cmd {
         self.name = arr[0].to_owned();
 
         for p in arr[1..].iter() {
-            self.params.push(Argument::new(p))
+            self.params.push(Argument::new(p, None))
         }
 
         self
@@ -132,7 +132,7 @@ impl Cmd {
                     program.emit(Event::OutputCommandHelp, self.name.as_str());
                     std::process::exit(0);
                 }
-                let ans = v.get_matches(self, program, idx, raw_args).unwrap();
+                let ans = v.get_matches(Some(self), program, idx, raw_args).unwrap();
                 options.insert(ans.0.clone(), ans.1.clone());
 
                 flags_and_args.push(a.clone());
@@ -201,12 +201,13 @@ impl Cmd {
             Keyword,
             &format!("   {} {} ", prog.get_bin_name(), self.name),
         );
-        fmtr.add(Description, &format!("{} [options]\n", params.trim()));
+        fmtr.add(Description, &format!("[options] {} \n", params.trim()));
 
         fmtr.add(Headline, "\nOPTIONS: \n");
         fmtr.format(
             FormatterRules::Option(prog.get_pattern().to_owned()),
             Some(self.options.clone()),
+            None,
             None,
         );
 
@@ -256,6 +257,7 @@ mod test {
                 name: "app_name".to_string(),
                 required: true,
                 literal: "<app-name>".to_string(),
+                description: None,
             }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),
