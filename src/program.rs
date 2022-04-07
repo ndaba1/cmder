@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use crate::parser::Argument;
+
 use super::parser::{resolve_flag, Cmd, Flag};
 use super::ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
 use super::{Event, EventEmitter};
@@ -22,6 +26,12 @@ pub struct Program {
     /// A vector containing the flags/swicthed that can be passed to the root instance of the program and not the subcommands
     options: Vec<Flag>,
 
+    /// A vector holding args/params that can be passed to the program itself directly, rather than to its commands.
+    arguments: Vec<Argument>,
+
+    /// This is applicable in cases where the program can be executed directly without necessarily requiring a command to be passed to it
+    callback: Option<fn(HashMap<String, String>, HashMap<String, String>) -> ()>,
+
     /// An instance of the EventEmitter struct that the program can use to emit and listen to events. The program also contains utility functions to interface with the event_emitter which it contains.
     event_emitter: EventEmitter,
 
@@ -43,8 +53,10 @@ impl Program {
             about: "".to_owned(),
             theme: Theme::default(),
             author: "".to_owned(),
+            callback: None,
             pattern: Pattern::Legacy,
             version: "0.1.0".to_owned(),
+            arguments: vec![],
             event_emitter: EventEmitter::new(),
             options: vec![
                 Flag::new("-h --help", "Output help information for the program"),
@@ -148,6 +160,91 @@ impl Program {
         }
     }
 
+    pub fn argument(&mut self, val: &str, body: &str) -> &mut Program {
+        let arg = Argument::new(val, Some(body.to_string()));
+
+        self.arguments.push(arg);
+        self
+    }
+
+    /// A method for adding options/flags directly to the program. It follows the same rules as the Cmd.options() method
+    pub fn option(&mut self, body: &str, desc: &str) -> &mut Program {
+        let flag = Flag::new(body, desc);
+
+        if !self.options.contains(&flag) {
+            self.options.push(flag);
+        }
+
+        self
+    }
+
+    fn parse_arguments(
+        &self,
+        raw_args: &[String],
+    ) -> (HashMap<String, String>, HashMap<String, String>) {
+        let mut options = HashMap::new();
+        let mut values = HashMap::new();
+
+        let mut flags_and_args = vec![];
+        for (idx, a) in raw_args.iter().enumerate() {
+            if let Some(v) = resolve_flag(&self.options, a) {
+                if v.short.as_str() == "-h" {
+                    // handle help flag being called
+                    self.output_help("");
+                    self.emit(Event::OutputHelp, self.name.as_str());
+                    std::process::exit(0);
+                }
+                let ans = v.get_matches(None, self, idx, raw_args).unwrap();
+                options.insert(ans.0.clone(), ans.1.clone());
+
+                flags_and_args.push(a.clone());
+                flags_and_args.push(ans.1);
+            }
+        }
+
+        // get all values that were not matched as flags or flags' params
+        let mut input = vec![];
+        for a in raw_args {
+            if !flags_and_args.contains(a) {
+                input.push(a)
+            }
+        }
+
+        // check if any required inputs are missing and act accordingly if so
+        let required = Argument::get_required_args(&self.arguments);
+        let handler = |i: usize| {
+            let msg = format!("{}, {}", self.name, self.arguments[i].literal);
+            self.emit(Event::MissingArgument, &msg);
+
+            let msg = format!("Missing required argument: {}", self.arguments[i].literal);
+            self.output_help(&msg);
+            std::process::exit(1)
+        };
+
+        // handle mutiple inputs required
+        match input.len() {
+            0 => {
+                if !required.is_empty() {
+                    handler(0);
+                }
+            }
+            val if val < required.len() => handler(val),
+            _ => {}
+        }
+
+        //TODO: more robust code for checking the input values
+        for (i, k) in self.arguments.iter().enumerate() {
+            let name = &k.name;
+
+            if let Some(v) = input.get(i) {
+                let val = v.to_owned();
+                values.insert(name.to_owned(), val.to_owned());
+            }
+        }
+
+        (values, options)
+    }
+
     /// This method receives the raw arguments passed to the program, and tries to get matches from all the configured commands or flags
     /// If no command is matched, it either acts in a default manner or executes the configured callbacks if any
     /// Also checks for the help and version flags.
@@ -174,6 +271,10 @@ impl Program {
                 (cmd.callback)(vals, opts);
             }
             val if val.starts_with('-') => self.get_matches(val),
+            _val if self.arguments.len() != 0 => {
+                let (vals, opts) = self.parse_arguments(&args);
+                (self.callback.unwrap())(vals, opts);
+            }
             val => {
                 self.emit(Event::UnknownCommand, val);
                 let msg = format!("Unknown command \"{}\"", val);
@@ -181,6 +282,18 @@ impl Program {
             }
         }
     }
+
+    pub fn action(
+        &mut self,
+        cb: fn(HashMap<String, String>, HashMap<String, String>) -> (),
+    ) -> &mut Program {
+        self.callback = Some(cb);
+
+        self
+    }
+
+    /// Similar to the parse function with one fundamental difference. The parse function receives no arguments and will automatically get them from the args passed to the program. However, the parse from requires the args to parse to be passed to it as a vector of string slices.
+    // pub fn parse_from(values: Vec<&str>) {}
 
     /// A method that try to get matches for any flags passed to the program itself, rather than a subcommand of the program.
     fn get_matches(&self, val: &str) {
@@ -243,21 +356,52 @@ impl Program {
         fmtr.add(Description, &format!("\n{}\n", self.about));
         fmtr.add(Headline, "\nUSAGE: \n");
         fmtr.add(Keyword, &format!("   {} ", self.name));
-        fmtr.add(Description, "<COMMAND> [options] \n");
+
+        let get_args = || {
+            let mut temp = String::new();
+            for arg in &self.arguments {
+                temp.push_str(&arg.literal);
+                temp.push(' ');
+            }
+            temp
+        };
+
+        if self.cmds.len() != 0 && self.arguments.len() != 0 {
+            let body = format!("[options] <COMMAND> | {} \n", get_args().trim());
+            fmtr.add(Description, &body);
+        } else if self.cmds.len() != 0 && self.arguments.len() == 0 {
+            fmtr.add(Description, "[options] <COMMAND> \n")
+        } else {
+            fmtr.add(Description, &format!("[options] {} \n", get_args().trim()))
+        }
 
         fmtr.add(Headline, "\nOPTIONS: \n");
         fmtr.format(
             FormatterRules::Option(self.pattern.clone()),
             Some(self.options.clone()),
             None,
+            None,
         );
 
-        fmtr.add(Headline, "\nCOMMANDS: \n");
-        fmtr.format(
-            FormatterRules::Cmd(self.pattern.clone()),
-            None,
-            Some(self.cmds.clone()),
-        );
+        if self.arguments.len() != 0 {
+            fmtr.add(Headline, "\nARGS: \n");
+            fmtr.format(
+                FormatterRules::Args(self.pattern.clone()),
+                None,
+                None,
+                Some(self.arguments.clone()),
+            );
+        }
+
+        if self.cmds.len() != 0 {
+            fmtr.add(Headline, "\nCOMMANDS: \n");
+            fmtr.format(
+                FormatterRules::Cmd(self.pattern.clone()),
+                None,
+                Some(self.cmds.clone()),
+                None,
+            );
+        }
 
         if !err.is_empty() {
             fmtr.add(Error, &format!("\nError: {}\n", err))
@@ -299,13 +443,15 @@ mod test {
 
         let manual = Program {
             cmds: vec![],
-            options: vec![],
             name: "".to_owned(),
+            about: "a test".to_string(),
+            callback: None,
             theme: Theme::default(),
+            author: "me".to_string(),
+            options: vec![],
             pattern: Pattern::Legacy,
             version: "0.1.0".to_string(),
-            author: "me".to_string(),
-            about: "a test".to_string(),
+            arguments: vec![],
             event_emitter: EventEmitter::new(),
         };
 
