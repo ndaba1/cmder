@@ -27,7 +27,7 @@ impl Flag {
             chunks[2..]
                 .to_vec()
                 .iter()
-                .map(|v| Argument::new(v))
+                .map(|v| Argument::new(v, None))
                 .collect()
         } else {
             vec![]
@@ -43,7 +43,7 @@ impl Flag {
 
     pub fn get_matches(
         &self,
-        cmd: &Cmd,
+        cmd: Option<&Cmd>,
         program: &Program,
         idx: usize,
         raw_args: &[String],
@@ -78,7 +78,7 @@ impl Flag {
                                 "Missing required argument: {} for option: {}",
                                 val.literal, raw_args[idx]
                             );
-                            cmd.output_command_help(program, &msg);
+                            cmd.unwrap().output_command_help(program, &msg);
                             std::process::exit(1)
                         }
                     }
