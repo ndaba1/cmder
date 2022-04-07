@@ -8,17 +8,21 @@ pub struct Argument {
 
     /// The raw literal of the argument, in the same way that it was passed, without any modifications, angle brackets and all.
     pub literal: String,
+
+    /// An optional description about the argument
+    pub description: Option<String>,
 }
 
 impl Argument {
     /// Takes in a string literal as input and returns a new argument instance after resolving all the struct fields of an argument by calling the `clean_arg` function.
-    pub fn new(value: &str) -> Self {
+    pub fn new(value: &str, description: Option<String>) -> Self {
         let (name, required) = clean_arg(value);
 
         Self {
             name,
             required,
             literal: value.to_string(),
+            description,
         }
     }
 
