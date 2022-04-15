@@ -206,12 +206,13 @@ impl Program {
                 .any(|c| c.get_name() == val || c.get_alias() == val) =>
             {
                 let cmd = self.get_cmd(val).unwrap();
-                let (vals, opts) = cmd.parse(self, &args[1..].to_vec());
+                let parser = Parser::new(&self, Some(cmd));
+                let (vals, opts) = parser.parse("cmd", &args[1..].to_vec());
                 (cmd.callback)(vals, opts);
             }
             val if val.starts_with('-') => self.get_matches(val),
             _val if self.arguments.len() != 0 => {
-                let parser = Parser::new(&self);
+                let parser = Parser::new(&self, None);
                 let (vals, opts) = parser.parse("program", &args);
                 (self.callback.unwrap())(vals, opts);
             }
