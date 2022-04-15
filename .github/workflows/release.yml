@@ -1,10 +1,9 @@
-name: cmder-ci-workflow
+name: cmder-release-workflow
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: 
+      - 'v*'
 
 jobs:
   test:
@@ -30,16 +29,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
-      - name: Semantic Versioning
-        id: versioning
-        uses: paulhatch/semantic-version@v4.0.2
-        with:
-          branch: main
-          tag_prefix: "v"
-          major_pattern: "BREAKING CHANGE:"
-          minor_pattern: "feat:"
-          format: "v${major}.${minor}.${patch}-prerelease${increment}"
 
       - name: Publish package
         uses: katyo/publish-crates@v1
