@@ -135,7 +135,16 @@ impl<'a> Parser<'a> {
         for (i, k) in params.iter().enumerate() {
             let name = &k.name;
 
-            if let Some(v) = input.get(i) {
+            if k.variadic {
+                let mut value = String::new();
+                for (idx, arg) in input.iter().enumerate() {
+                    if idx >= i {
+                        value.push_str(arg);
+                        value.push(' ')
+                    }
+                }
+                values.insert(name.to_owned(), value.trim().to_string());
+            } else if let Some(v) = input.get(i) {
                 let val = v.to_owned();
                 values.insert(name.to_owned(), val.to_owned());
             }
