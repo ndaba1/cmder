@@ -1,6 +1,4 @@
-use super::super::{Event, Program};
 use super::args::Argument;
-use super::Cmd;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flag {
@@ -43,11 +41,9 @@ impl Flag {
 
     pub fn get_matches(
         &self,
-        cmd: Option<&Cmd>,
-        program: &Program,
         idx: usize,
         raw_args: &[String],
-    ) -> Option<(String, String)> {
+    ) -> Result<Option<(String, String)>, (String, String)> {
         // assuming raw_args look something like exe test -a -p 1 -x
         let max_len = self.params.len();
         let cleaned = self.long.replace("--", "").replace('-', "_");
@@ -55,7 +51,17 @@ impl Flag {
 
         for (i, val) in self.params.iter().enumerate() {
             let step = i + 1;
-            if i <= max_len {
+
+            if val.variadic {
+                let mut value = String::new();
+                for (index, arg) in raw_args.iter().enumerate() {
+                    if index >= idx && !arg.starts_with('-') {
+                        value.push_str(arg);
+                        value.push(' ')
+                    }
+                }
+                result = Some((val.name.clone(), value.trim().to_string()))
+            } else if i <= max_len {
                 // try to any args input values
                 match raw_args.get(idx + step) {
                     Some(v) => {
@@ -68,25 +74,14 @@ impl Flag {
                     }
                     None => {
                         if val.required {
-                            // emit missing required argument
-                            program.emit(
-                                Event::OptionMissingArgument,
-                                format!("{} {}", val.literal, raw_args[idx]).as_str(),
-                            );
-
-                            let msg = format!(
-                                "Missing required argument: {} for option: {}",
-                                val.literal, raw_args[idx]
-                            );
-                            cmd.unwrap().output_command_help(program, &msg);
-                            std::process::exit(1)
+                            return Err((val.literal.clone(), raw_args[idx].clone()));
                         }
                     }
                 }
             }
         }
 
-        result
+        Ok(result)
     }
 }
 

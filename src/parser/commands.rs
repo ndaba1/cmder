@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
+use super::super::ui::{Designation, Formatter, FormatterRules};
 use super::super::Program;
-use super::super::{
-    ui::{Designation, Formatter, FormatterRules},
-    Event,
-};
-use super::{resolve_flag, Argument, Flag};
+use super::{Argument, Flag};
 
 #[derive(Clone)]
 /// The Command struct represents the structure of a command/subcommand that can be invoked from your CLI.
@@ -113,76 +110,6 @@ impl Cmd {
         prog.add_cmd(self.to_owned());
     }
 
-    /// This is a fairly involved method. It takes in the instance of the program, as well as the arguments passed to a command and parses them, to return two hashmaps, one containg the params of the command and their values and another containing the flags passed to the command and their resolved values if any.
-    /// The methods checks for required params and whether or not they're missing, checks if the help flag is included or not and if any `Events` are encountered, it checks for listeners and if none are found the program executes in a default manner.
-    pub fn parse(
-        &self,
-        program: &Program,
-        raw_args: &[String],
-    ) -> (HashMap<String, String>, HashMap<String, String>) {
-        let mut options = HashMap::new();
-        let mut values = HashMap::new();
-
-        let mut flags_and_args = vec![];
-        for (idx, a) in raw_args.iter().enumerate() {
-            if let Some(v) = resolve_flag(&self.options, a) {
-                if v.short.as_str() == "-h" {
-                    // handle help flag being called
-                    self.output_command_help(program, "");
-                    program.emit(Event::OutputCommandHelp, self.name.as_str());
-                    std::process::exit(0);
-                }
-                let ans = v.get_matches(Some(self), program, idx, raw_args).unwrap();
-                options.insert(ans.0.clone(), ans.1.clone());
-
-                flags_and_args.push(a.clone());
-                flags_and_args.push(ans.1);
-            }
-        }
-
-        // get all values that were not matched as flags or flags' params
-        let mut input = vec![];
-        for a in raw_args {
-            if !flags_and_args.contains(a) {
-                input.push(a)
-            }
-        }
-
-        // check if any required inputs are missing and act accordingly if so
-        let required = Argument::get_required_args(&self.params);
-        let handler = |i: usize| {
-            let msg = format!("{}, {}", self.name, self.params[i].literal);
-            program.emit(Event::MissingArgument, &msg);
-
-            let msg = format!("Missing required argument: {}", self.params[i].literal);
-            self.output_command_help(program, &msg);
-            std::process::exit(1)
-        };
-
-        // handle mutiple inputs required
-        match input.len() {
-            0 => {
-                if !required.is_empty() {
-                    handler(0);
-                }
-            }
-            val if val < required.len() => handler(val),
-            _ => {}
-        }
-
-        //TODO: more robust code for checking the input values
-        for (i, k) in self.params.iter().enumerate() {
-            let name = &k.name;
-
-            if let Some(v) = input.get(i) {
-                let val = v.to_owned();
-                values.insert(name.to_owned(), val.to_owned());
-            }
-        }
-
-        (values, options)
-    }
-
     pub fn output_command_help(&self, prog: &Program, err: &str) {
         let mut fmtr = Formatter::new(prog.get_theme().to_owned());
 
@@ -258,6 +185,7 @@ mod test {
                 required: true,
                 literal: "<app-name>".to_string(),
                 description: None,
+                variadic: false,
             }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),

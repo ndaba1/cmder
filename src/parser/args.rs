@@ -11,18 +11,22 @@ pub struct Argument {
 
     /// An optional description about the argument
     pub description: Option<String>,
+
+    /// Whether or not the arg is variadic or not
+    pub variadic: bool,
 }
 
 impl Argument {
     /// Takes in a string literal as input and returns a new argument instance after resolving all the struct fields of an argument by calling the `clean_arg` function.
     pub fn new(value: &str, description: Option<String>) -> Self {
-        let (name, required) = clean_arg(value);
+        let (name, required, variadic) = clean_arg(value);
 
         Self {
             name,
             required,
             literal: value.to_string(),
             description,
+            variadic,
         }
     }
 
@@ -41,7 +45,7 @@ impl Argument {
 }
 
 /// Cleans an argument by removing any brackets and determining whether the argument is required is not.
-fn clean_arg(val: &str) -> (String, bool) {
+fn clean_arg(val: &str) -> (String, bool, bool) {
     let delimiters;
 
     let required = if val.starts_with('<') {
@@ -52,10 +56,17 @@ fn clean_arg(val: &str) -> (String, bool) {
         false
     };
 
-    let name = val
+    let mut name = val
         .replace(delimiters[0], "")
         .replace(delimiters[1], "")
         .replace('-', "_");
 
-    (name, required)
+    let variadic = if name.ends_with("...") {
+        name = name.replace("...", "");
+        true
+    } else {
+        false
+    };
+
+    (name, required, variadic)
 }

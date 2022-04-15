@@ -217,8 +217,8 @@ fn args_iterator(args: &[Argument], ptrn: &Pattern) -> Vec<(String, String)> {
     let mut vals = vec![];
     for arg in args {
         let value = match &ptrn {
-            Pattern::Legacy => format!("{}", arg.name),
-            _ => format!("{}", arg.name),
+            Pattern::Legacy => arg.name.to_string(),
+            _ => arg.name.to_string(),
         };
 
         vals.push((value, arg.description.clone().unwrap()))
