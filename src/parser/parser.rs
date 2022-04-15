@@ -11,8 +11,8 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(program: &'a Program) -> Self {
-        Self { program, cmd: None }
+    pub fn new(program: &'a Program, cmd: Option<&'a Cmd>) -> Self {
+        Self { program, cmd }
     }
 
     pub fn parse(
