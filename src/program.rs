@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::parser::Parser;
+use crate::parser::core_parser::Parser;
 use crate::parser::Argument;
 
 use super::parser::{resolve_flag, Cmd, Flag};
