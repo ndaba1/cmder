@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::parser::parser::Parser;
 use crate::parser::Argument;
 
 use super::parser::{resolve_flag, Cmd, Flag};
@@ -141,6 +142,11 @@ impl Program {
         &self.options
     }
 
+    /// This method is similar to the `get_options` except it returns the params of the program, both required and optional ones
+    pub fn get_input(&self) -> &Vec<Argument> {
+        &self.arguments
+    }
+
     /// A private utility function that receives the first argument passed to the program, being the path to the binary file and extracts the name of the executable to be set as the name of the program and utilized when printing out help information.
     ///
     /// The behavior of this function can be overriden by using the .bin_name() method. The method can be used when the name to be displayed to the users is different from the actual name of the executable binary.
@@ -178,73 +184,6 @@ impl Program {
         self
     }
 
-    fn parse_arguments(
-        &self,
-        raw_args: &[String],
-    ) -> (HashMap<String, String>, HashMap<String, String>) {
-        let mut options = HashMap::new();
-        let mut values = HashMap::new();
-
-        let mut flags_and_args = vec![];
-        for (idx, a) in raw_args.iter().enumerate() {
-            if let Some(v) = resolve_flag(&self.options, a) {
-                if v.short.as_str() == "-h" {
-                    // handle help flag being called
-                    self.output_help("");
-                    self.emit(Event::OutputHelp, self.name.as_str());
-                    std::process::exit(0);
-                }
-                let ans = v.get_matches(None, self, idx, raw_args).unwrap();
-                options.insert(ans.0.clone(), ans.1.clone());
-
-                flags_and_args.push(a.clone());
-                flags_and_args.push(ans.1);
-            }
-        }
-
-        // get all values that were not matched as flags or flags' params
-        let mut input = vec![];
-        for a in raw_args {
-            if !flags_and_args.contains(a) {
-                input.push(a)
-            }
-        }
-
-        // check if any required inputs are missing and act accordingly if so
-        let required = Argument::get_required_args(&self.arguments);
-        let handler = |i: usize| {
-            let msg = format!("{}, {}", self.name, self.arguments[i].literal);
-            self.emit(Event::MissingArgument, &msg);
-
-            let msg = format!("Missing required argument: {}", self.arguments[i].literal);
-            self.output_help(&msg);
-            std::process::exit(1)
-        };
-
-        // handle mutiple inputs required
-        match input.len() {
-            0 => {
-                if !required.is_empty() {
-                    handler(0);
-                }
-            }
-            val if val < required.len() => handler(val),
-            _ => {}
-        }
-
-        //TODO: more robust code for checking the input values
-        for (i, k) in self.arguments.iter().enumerate() {
-            let name = &k.name;
-
-            if let Some(v) = input.get(i) {
-                let val = v.to_owned();
-                values.insert(name.to_owned(), val.to_owned());
-            }
-        }
-
-        (values, options)
-    }
-
     /// This method receives the raw arguments passed to the program, and tries to get matches from all the configured commands or flags
     /// If no command is matched, it either acts in a default manner or executes the configured callbacks if any
     /// Also checks for the help and version flags.
@@ -272,7 +211,8 @@ impl Program {
             }
             val if val.starts_with('-') => self.get_matches(val),
             _val if self.arguments.len() != 0 => {
-                let (vals, opts) = self.parse_arguments(&args);
+                let parser = Parser::new(&self);
+                let (vals, opts) = parser.parse("program", &args);
                 (self.callback.unwrap())(vals, opts);
             }
             val => {
