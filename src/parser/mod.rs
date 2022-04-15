@@ -1,7 +1,7 @@
 pub mod args;
 pub mod commands;
 pub mod flags;
-pub mod parser_core;
+pub mod parser;
 
 pub use args::Argument;
 pub use commands::Cmd;
