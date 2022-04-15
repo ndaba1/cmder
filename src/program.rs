@@ -194,7 +194,15 @@ impl Program {
         self.name = self.get_target_name(raw_args[0].clone());
 
         if args.is_empty() {
-            self.output_help("You did not pass a command!");
+            let msg = if self.arguments.len() == 0 && self.cmds.len() != 0 {
+                "You did not pass a command".to_string()
+            } else if self.arguments.len() != 0 && self.cmds.len() == 0 {
+                let arg = self.arguments.first().unwrap();
+                format!("Missing required argument: {}", arg.literal)
+            } else {
+                "No command or arguments passed".to_string()
+            };
+            self.output_help(&msg);
             self.emit(Event::OutputHelp, "");
             return;
         }
@@ -294,7 +302,9 @@ impl Program {
 
         use Designation::*;
 
-        fmtr.add(Description, &format!("\n{}\n", self.about));
+        if !self.about.is_empty() {
+            fmtr.add(Description, &format!("\n{}\n", self.about));
+        }
         fmtr.add(Headline, "\nUSAGE: \n");
         fmtr.add(Keyword, &format!("   {} ", self.name));
 
