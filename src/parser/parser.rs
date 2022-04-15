@@ -104,7 +104,7 @@ impl<'a> Parser<'a> {
         };
 
         // check if any required inputs are missing and act accordingly if so
-        let required = Argument::get_required_args(&params);
+        let required = Argument::get_required_args(params);
         let handler = |i: usize| {
             let msg = format!("{}, {}", name, params[i].literal);
             program.emit(Event::MissingArgument, &msg);

@@ -7,6 +7,7 @@ use super::parser::{resolve_flag, Cmd, Flag};
 use super::ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
 use super::{Event, EventEmitter};
 
+type Callback = fn(HashMap<String, String>, HashMap<String, String>) -> ();
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
 pub struct Program {
     /// Stores all the commands that your program contains. You won't have to deal with this field directly rather by calling specific methods that allow you to build commands and add them to this vector
@@ -31,7 +32,7 @@ pub struct Program {
     arguments: Vec<Argument>,
 
     /// This is applicable in cases where the program can be executed directly without necessarily requiring a command to be passed to it
-    callback: Option<fn(HashMap<String, String>, HashMap<String, String>) -> ()>,
+    callback: Option<Callback>,
 
     /// An instance of the EventEmitter struct that the program can use to emit and listen to events. The program also contains utility functions to interface with the event_emitter which it contains.
     event_emitter: EventEmitter,
@@ -194,9 +195,9 @@ impl Program {
         self.name = self.get_target_name(raw_args[0].clone());
 
         if args.is_empty() {
-            let msg = if self.arguments.len() == 0 && self.cmds.len() != 0 {
+            let msg = if self.arguments.is_empty() && !self.cmds.is_empty() {
                 "You did not pass a command".to_string()
-            } else if self.arguments.len() != 0 && self.cmds.len() == 0 {
+            } else if !self.arguments.is_empty() && self.cmds.is_empty() {
                 let arg = self.arguments.first().unwrap();
                 format!("Missing required argument: {}", arg.literal)
             } else {
@@ -214,13 +215,13 @@ impl Program {
                 .any(|c| c.get_name() == val || c.get_alias() == val) =>
             {
                 let cmd = self.get_cmd(val).unwrap();
-                let parser = Parser::new(&self, Some(cmd));
+                let parser = Parser::new(self, Some(cmd));
                 let (vals, opts) = parser.parse("cmd", &args[1..].to_vec());
                 (cmd.callback)(vals, opts);
             }
             val if val.starts_with('-') => self.get_matches(val),
-            _val if self.arguments.len() != 0 => {
-                let parser = Parser::new(&self, None);
+            _val if !self.arguments.is_empty() => {
+                let parser = Parser::new(self, None);
                 let (vals, opts) = parser.parse("program", &args);
                 (self.callback.unwrap())(vals, opts);
             }
@@ -317,10 +318,10 @@ impl Program {
             temp
         };
 
-        if self.cmds.len() != 0 && self.arguments.len() != 0 {
+        if !self.cmds.is_empty() && !self.arguments.is_empty() {
             let body = format!("[options] <COMMAND> | {} \n", get_args().trim());
             fmtr.add(Description, &body);
-        } else if self.cmds.len() != 0 && self.arguments.len() == 0 {
+        } else if !self.cmds.is_empty() && self.arguments.is_empty() {
             fmtr.add(Description, "[options] <COMMAND> \n")
         } else {
             fmtr.add(Description, &format!("[options] {} \n", get_args().trim()))
@@ -334,7 +335,7 @@ impl Program {
             None,
         );
 
-        if self.arguments.len() != 0 {
+        if !self.arguments.is_empty() {
             fmtr.add(Headline, "\nARGS: \n");
             fmtr.format(
                 FormatterRules::Args(self.pattern.clone()),
@@ -344,7 +345,7 @@ impl Program {
             );
         }
 
-        if self.cmds.len() != 0 {
+        if !self.cmds.is_empty() {
             fmtr.add(Headline, "\nCOMMANDS: \n");
             fmtr.format(
                 FormatterRules::Cmd(self.pattern.clone()),
