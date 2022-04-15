@@ -188,12 +188,7 @@ impl Program {
     /// This method receives the raw arguments passed to the program, and tries to get matches from all the configured commands or flags
     /// If no command is matched, it either acts in a default manner or executes the configured callbacks if any
     /// Also checks for the help and version flags.
-    pub fn parse(&mut self) {
-        let raw_args: Vec<String> = std::env::args().collect();
-        let args = raw_args[1..].to_vec();
-
-        self.name = self.get_target_name(raw_args[0].clone());
-
+    fn _parse(&mut self, args: Vec<String>) {
         if args.is_empty() {
             let msg = if self.arguments.is_empty() && !self.cmds.is_empty() {
                 "You did not pass a command".to_string()
@@ -233,6 +228,24 @@ impl Program {
         }
     }
 
+    /// This method automatically receives the arguments passed to the program itself and parses the arguments accordingly.
+    pub fn parse(&mut self) {
+        let raw_args: Vec<String> = std::env::args().collect();
+        let args = raw_args[1..].to_vec();
+
+        self.name = self.get_target_name(raw_args[0].clone());
+        self._parse(args);
+    }
+
+    /// Similar to the parse function with one fundamental difference. The parse function receives no arguments and will automatically get them from the args passed to the program. However, the parse from requires the args to parse to be passed to it as a vector of string slices.
+    pub fn parse_from(&mut self, values: Vec<&str>) {
+        let mut args = vec![];
+        for v in values {
+            args.push(v.to_string())
+        }
+        self._parse(args)
+    }
+
     pub fn action(
         &mut self,
         cb: fn(HashMap<String, String>, HashMap<String, String>) -> (),
@@ -241,9 +254,6 @@ impl Program {
 
         self
     }
-
-    /// Similar to the parse function with one fundamental difference. The parse function receives no arguments and will automatically get them from the args passed to the program. However, the parse from requires the args to parse to be passed to it as a vector of string slices.
-    // pub fn parse_from(values: Vec<&str>) {}
 
     /// A method that try to get matches for any flags passed to the program itself, rather than a subcommand of the program.
     fn get_matches(&self, val: &str) {
