@@ -185,6 +185,7 @@ mod test {
                 required: true,
                 literal: "<app-name>".to_string(),
                 description: None,
+                variadic: false,
             }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),
