@@ -47,6 +47,7 @@ impl Cmd {
         self
     }
 
+    /// This method is fairly similar to the .command method except it is used to register a new subcommand to an already existing command
     pub fn subcommand(&mut self, val: &str) -> Cmd {
         let arr: Vec<_> = val.split(' ').collect();
         let mut sub_cmd = Cmd::new();
@@ -56,12 +57,6 @@ impl Cmd {
             sub_cmd.params.push(Argument::new(p, None))
         }
         sub_cmd
-    }
-
-    pub fn construct<'a>(&'a mut self, parent_cmd: &'a mut Cmd) -> &'a mut Cmd {
-        self.parent = Box::new(Some(parent_cmd.to_owned()));
-        parent_cmd.add_sub_cmd(self.to_owned());
-        self
     }
 
     /// Takes a string slice containing the desired alias of the command as input and sets it as so
@@ -96,14 +91,21 @@ impl Cmd {
         &self.params
     }
 
+    /// Returns a reference to the vector of subcommands if any
     pub fn get_subcommands(&self) -> &Vec<Cmd> {
         &self.subcommands
     }
 
+    /// A method used to search for a given subcommand from a string slice matching either the subcommand's name or its alias.
     pub fn find_subcmd(&self, val: &str) -> Option<&Cmd> {
         self.subcommands
             .iter()
             .find(|c| c.get_alias() == val.to_lowercase() || c.get_name() == val)
+    }
+
+    /// A utility method that pushes a fully constructed subcmd to the vector of subcmds.
+    pub fn add_sub_cmd(&mut self, sub_cmd: Cmd) {
+        self.subcommands.push(sub_cmd);
     }
 
     /// The describe command is passed the description of the command, which gets printed out when the help flag is passed
@@ -111,10 +113,6 @@ impl Cmd {
         self.description = desc.to_owned();
 
         self
-    }
-
-    pub fn add_sub_cmd(&mut self, sub_cmd: Cmd) {
-        self.subcommands.push(sub_cmd);
     }
 
     /// A method for adding options/flags to a command. It takes in two string slices as input in the form: `short long params?`, `docstring`
@@ -145,6 +143,13 @@ impl Cmd {
     pub fn build<'a>(&'a mut self, prog: &'a mut Program) -> &'a mut Cmd {
         // TODO: avoid mutating the cmds field like this
         prog.add_cmd(self.to_owned());
+        self
+    }
+
+    /// Similar in all manners to the the build method save for the fact that the construct method receives a mutable ref to a command and constructs a subcommand while the build method receives a mutable ref to the program and build a command into it.
+    pub fn construct<'a>(&'a mut self, parent_cmd: &'a mut Cmd) -> &'a mut Cmd {
+        self.parent = Box::new(Some(parent_cmd.to_owned()));
+        parent_cmd.add_sub_cmd(self.to_owned());
         self
     }
 
