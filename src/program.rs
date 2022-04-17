@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::parser::core_parser::Parser;
 use crate::parser::Argument;
 
-use super::parser::{resolve_flag, Cmd, Flag};
+use super::parser::{Cmd, Flag};
 use super::ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
 use super::{Event, EventEmitter};
 
@@ -149,7 +149,6 @@ impl Program {
     }
 
     /// A private utility function that receives the first argument passed to the program, being the path to the binary file and extracts the name of the executable to be set as the name of the program and utilized when printing out help information.
-    ///
     /// The behavior of this function can be overriden by using the .bin_name() method. The method can be used when the name to be displayed to the users is different from the actual name of the executable binary.
     fn get_target_name(&self, val: String) -> String {
         if self.name.is_empty() {
@@ -203,27 +202,36 @@ impl Program {
             return;
         }
 
-        match args[0].to_lowercase().as_str() {
-            val if self
-                .cmds
-                .iter()
-                .any(|c| c.get_name() == val || c.get_alias() == val) =>
-            {
-                let cmd = self.get_cmd(val).unwrap();
+        let first_arg = args[0].to_lowercase();
+        let parent = if self
+            .cmds
+            .iter()
+            .any(|c| c.get_name() == &first_arg || c.get_alias() == &first_arg)
+        {
+            "cmd"
+        } else {
+            "program"
+        };
+
+        match parent {
+            "cmd" => {
+                let cmd = self.get_cmd(&first_arg).unwrap();
                 let parser = Parser::new(self, Some(cmd));
-                let (vals, opts) = parser.parse("cmd", &args[1..].to_vec());
-                (cmd.callback)(vals, opts);
+                let (values, options) = parser.parse(parent, &args[1..].to_vec());
+                (cmd.callback)(values, options);
             }
-            val if val.starts_with('-') => self.get_matches(val),
-            _val if !self.arguments.is_empty() => {
+            _ => {
                 let parser = Parser::new(self, None);
-                let (vals, opts) = parser.parse("program", &args);
-                (self.callback.unwrap())(vals, opts);
-            }
-            val => {
-                self.emit(Event::UnknownCommand, val);
-                let msg = format!("Unknown command \"{}\"", val);
-                self.output_help(msg.as_str());
+                let (vals, opts) = parser.parse(parent, &args);
+
+                if !self.arguments.is_empty() && self.callback.is_some() {
+                    (self.callback.unwrap())(vals, opts);
+                } else {
+                    self.emit(Event::UnknownCommand, &first_arg);
+                    let msg = format!("Unknown command \"{}\"", &first_arg);
+                    self.output_help(&msg);
+                    std::process::exit(1);
+                }
             }
         }
     }
@@ -246,6 +254,7 @@ impl Program {
         self._parse(args)
     }
 
+    /// Used to set the callback function that will be executed when the program is executed directly rather than a subcommand of the program.
     pub fn action(
         &mut self,
         cb: fn(HashMap<String, String>, HashMap<String, String>) -> (),
@@ -253,23 +262,6 @@ impl Program {
         self.callback = Some(cb);
 
         self
-    }
-
-    /// A method that try to get matches for any flags passed to the program itself, rather than a subcommand of the program.
-    fn get_matches(&self, val: &str) {
-        if let Some(v) = resolve_flag(&self.options, val) {
-            if v.short.as_str() == "-h" {
-                self.output_help("");
-                self.emit(Event::OutputHelp, "");
-            } else if v.short.as_str() == "-v" {
-                self.emit(Event::OutputVersion, self.version.as_str());
-                self.output_version_info()
-            }
-        } else {
-            self.emit(Event::UnknownOption, val);
-            let msg = format!("Unknown option \"{}\"", val);
-            self.output_help(msg.as_str());
-        }
     }
 
     /// A simple method that tries to find a command from a given string slice that can either be the name of the command or its alias.
