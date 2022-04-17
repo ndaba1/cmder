@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use crate::parser::Argument;
 use crate::parser::Parser;
+use crate::utils::print_help;
 
 use super::parser::{Cmd, Flag};
-use super::ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
+use super::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
 use super::{Event, EventEmitter};
 
 type Callback = fn(HashMap<String, String>, HashMap<String, String>) -> ();
@@ -20,7 +21,7 @@ pub struct Program {
     author: String,
 
     /// A short description of what the program does, usually the programs tagline. It gets printed out when the version and help flags are passed
-    about: String,
+    description: String,
 
     /// The name of the program. It is obtained from the args passed to the cli and is used when printing help information, or any other cases that require the program name
     name: String,
@@ -52,7 +53,7 @@ impl Program {
         Self {
             cmds: vec![],
             name: "".to_owned(),
-            about: "".to_owned(),
+            description: "".to_owned(),
             theme: Theme::default(),
             author: "".to_owned(),
             callback: None,
@@ -87,7 +88,7 @@ impl Program {
 
     /// A method that receives a mutable ref to a program and a description, and mutates the about field in the program struct then returns another mutable ref to the program
     pub fn description(&mut self, desc: &str) -> &mut Program {
-        self.about = desc.to_string();
+        self.description = desc.to_string();
         self
     }
 
@@ -120,7 +121,7 @@ impl Program {
 
     /// A getter that returns the description of the program
     pub fn get_description(&self) -> &str {
-        &self.about
+        &self.description
     }
 
     /// Returns a reference to the vector containing all the commands configured into the program.
@@ -203,12 +204,24 @@ impl Program {
         }
 
         let first_arg = args[0].to_lowercase();
+        let mut parent_cmd: Option<Cmd> = None;
         let parent = if self
             .cmds
             .iter()
             .any(|c| c.get_name() == first_arg || c.get_alias() == first_arg)
         {
             "cmd"
+        } else if self.cmds.iter().any(|c| {
+            if c.get_subcommands()
+                .iter()
+                .any(|s| s.get_name() == first_arg || s.get_alias() == first_arg)
+            {
+                parent_cmd = Some(c.clone());
+                return true;
+            }
+            false
+        }) {
+            "subcmd"
         } else {
             "program"
         };
@@ -216,8 +229,26 @@ impl Program {
         match parent {
             "cmd" => {
                 let cmd = self.get_cmd(&first_arg).unwrap();
+
+                if args.len() >= 2
+                    && cmd
+                        .get_subcommands()
+                        .iter()
+                        .any(|sc| sc.get_alias() == args[1] || sc.get_name() == args[1])
+                {
+                    self._parse(args[1..].to_vec())
+                } else {
+                    let parser = Parser::new(self, Some(cmd));
+                    let (values, options) = parser.parse(parent, &args[1..].to_vec());
+                    (cmd.callback)(values, options);
+                }
+            }
+            "subcmd" => {
+                let p_cmd = parent_cmd.unwrap();
+                let cmd = p_cmd.find_subcmd(&first_arg).unwrap();
+
                 let parser = Parser::new(self, Some(cmd));
-                let (values, options) = parser.parse(parent, &args[1..].to_vec());
+                let (values, options) = parser.parse("cmd", &args[1..].to_vec());
                 (cmd.callback)(values, options);
             }
             _ => {
@@ -301,69 +332,7 @@ impl Program {
 
     /// This method is used to output help information to standard out. It uses the themes and patterns configured for the program.
     pub fn output_help(&self, err: &str) {
-        let mut fmtr = Formatter::new(self.theme.clone());
-
-        use Designation::*;
-
-        if !self.about.is_empty() {
-            fmtr.add(Description, &format!("\n{}\n", self.about));
-        }
-        fmtr.add(Headline, "\nUSAGE: \n");
-        fmtr.add(Keyword, &format!("   {} ", self.name));
-
-        let get_args = || {
-            let mut temp = String::new();
-            for arg in &self.arguments {
-                temp.push_str(&arg.literal);
-                temp.push(' ');
-            }
-            temp
-        };
-
-        if !self.cmds.is_empty() && !self.arguments.is_empty() {
-            let body = format!("[options] <COMMAND> | {} \n", get_args().trim());
-            fmtr.add(Description, &body);
-        } else if !self.cmds.is_empty() && self.arguments.is_empty() {
-            fmtr.add(Description, "[options] <COMMAND> \n")
-        } else {
-            fmtr.add(Description, &format!("[options] {} \n", get_args().trim()))
-        }
-
-        fmtr.add(Headline, "\nOPTIONS: \n");
-        fmtr.format(
-            FormatterRules::Option(self.pattern.clone()),
-            Some(self.options.clone()),
-            None,
-            None,
-        );
-
-        if !self.arguments.is_empty() {
-            fmtr.add(Headline, "\nARGS: \n");
-            fmtr.format(
-                FormatterRules::Args(self.pattern.clone()),
-                None,
-                None,
-                Some(self.arguments.clone()),
-            );
-        }
-
-        if !self.cmds.is_empty() {
-            fmtr.add(Headline, "\nCOMMANDS: \n");
-            fmtr.format(
-                FormatterRules::Cmd(self.pattern.clone()),
-                None,
-                Some(self.cmds.clone()),
-                None,
-            );
-        }
-
-        if !err.is_empty() {
-            fmtr.add(Error, &format!("\nError: {}\n", err))
-        }
-
-        fmtr.print();
-
-        self.emit(Event::OutputHelp, "");
+        print_help(self, None, err)
     }
 
     /// Simply outputs the name and version of the program. As well as the author information and program description.
@@ -373,7 +342,7 @@ impl Program {
         use Designation::*;
 
         fmtr.add(Keyword, &format!("{}, v{}\n", self.name, self.version));
-        fmtr.add(Description, &format!("{}\n", self.about));
+        fmtr.add(Description, &format!("{}\n", self.description));
         fmtr.add(Other, &format!("{}\n", self.author));
 
         fmtr.print();
@@ -398,7 +367,7 @@ mod test {
         let manual = Program {
             cmds: vec![],
             name: "".to_owned(),
-            about: "a test".to_string(),
+            description: "a test".to_string(),
             callback: None,
             theme: Theme::default(),
             author: "me".to_string(),
@@ -410,7 +379,7 @@ mod test {
         };
 
         assert_eq!(auto.author, manual.author);
-        assert_eq!(auto.about, manual.about);
+        assert_eq!(auto.description, manual.description);
     }
 
     #[test]
