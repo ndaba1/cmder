@@ -4,7 +4,7 @@ use super::super::ui::{Designation, Formatter, FormatterRules};
 use super::super::Program;
 use super::{Argument, Flag};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// The Command struct represents the structure of a command/subcommand that can be invoked from your CLI.
 /// Each of the said fields are manipulated via implementations of the struct each of which return the struct allowing for methods to be chained continously.
 pub struct Cmd {
@@ -23,6 +23,12 @@ pub struct Cmd {
     /// Options refer to the flags/switches that your command can receive
     options: Vec<Flag>,
 
+    /// A command can also have chained subcommands
+    subcommands: Vec<Self>,
+
+    /// A subcommand stores the ref to its parent command
+    parent: Box<Option<Cmd>>,
+
     /// The callback is a closure that takes in two hashmaps, each of which contain string keys and values, the first hashmap contains all the values of the params to the given command, while the second hashmap contains the metadata for any flags passed to the command and their values if any.
     pub callback: fn(HashMap<String, String>, HashMap<String, String>) -> (),
 }
@@ -38,6 +44,23 @@ impl Cmd {
             self.params.push(Argument::new(p, None))
         }
 
+        self
+    }
+
+    pub fn subcommand(&mut self, val: &str) -> Cmd {
+        let arr: Vec<_> = val.split(' ').collect();
+        let mut sub_cmd = Cmd::new();
+        sub_cmd.name = arr[0].to_owned();
+
+        for p in arr[1..].iter() {
+            sub_cmd.params.push(Argument::new(p, None))
+        }
+        sub_cmd
+    }
+
+    pub fn construct<'a>(&'a mut self, parent_cmd: &'a mut Cmd) -> &'a mut Cmd {
+        self.parent = Box::new(Some(parent_cmd.to_owned()));
+        parent_cmd.add_sub_cmd(self.to_owned());
         self
     }
 
@@ -73,11 +96,25 @@ impl Cmd {
         &self.params
     }
 
+    pub fn get_subcommands(&self) -> &Vec<Cmd> {
+        &self.subcommands
+    }
+
+    pub fn find_subcmd(&self, val: &str) -> Option<&Cmd> {
+        self.subcommands
+            .iter()
+            .find(|c| c.get_alias() == val.to_lowercase() || c.get_name() == val)
+    }
+
     /// The describe command is passed the description of the command, which gets printed out when the help flag is passed
     pub fn description(&mut self, desc: &str) -> &mut Cmd {
         self.description = desc.to_owned();
 
         self
+    }
+
+    pub fn add_sub_cmd(&mut self, sub_cmd: Cmd) {
+        self.subcommands.push(sub_cmd);
     }
 
     /// A method for adding options/flags to a command. It takes in two string slices as input in the form: `short long params?`, `docstring`
@@ -105,9 +142,10 @@ impl Cmd {
 
     /// Receives the instance of the program as input and pushes the constructed command to the `cmds` field of the program struct
     /// This should be the last method to be chained as it returns a unit type.
-    pub fn build(&mut self, prog: &mut Program) {
+    pub fn build<'a>(&'a mut self, prog: &'a mut Program) -> &'a mut Cmd {
         // TODO: avoid mutating the cmds field like this
         prog.add_cmd(self.to_owned());
+        self
     }
 
     pub fn output_command_help(&self, prog: &Program, err: &str) {
@@ -124,10 +162,20 @@ impl Cmd {
             params.push(' ');
         }
 
-        fmtr.add(
-            Keyword,
-            &format!("   {} {} ", prog.get_bin_name(), self.name),
-        );
+        fmtr.add(Keyword, &format!("   {} ", prog.get_bin_name()));
+
+        if self.parent.is_some() {
+            let parent = self.parent.clone();
+            let cmd = parent.unwrap();
+            fmtr.add(Keyword, &format!("{} ", cmd.get_name()))
+        }
+
+        fmtr.add(Keyword, &format!("{} ", self.name));
+
+        if !self.subcommands.is_empty() {
+            fmtr.add(Description, "<SUB-COMMAND> ")
+        }
+
         fmtr.add(Description, &format!("[options] {} \n", params.trim()));
 
         fmtr.add(Headline, "\nOPTIONS: \n");
@@ -137,6 +185,16 @@ impl Cmd {
             None,
             None,
         );
+
+        if !self.subcommands.is_empty() {
+            fmtr.add(Headline, "\nSUB-COMMANDS: \n");
+            fmtr.format(
+                FormatterRules::Cmd(prog.get_pattern().clone()),
+                None,
+                Some(self.subcommands.clone()),
+                None,
+            );
+        }
 
         if !err.is_empty() {
             fmtr.add(Error, &format!("\nError: {}\n", err))
@@ -159,6 +217,8 @@ impl Cmd {
                 "-h --help",
                 "Output help information for a command",
             )],
+            subcommands: vec![],
+            parent: Box::new(None),
             callback: |_cmd, _args| {},
         }
     }
@@ -189,10 +249,12 @@ mod test {
             }],
             callback: |_cmd, _args| {},
             description: "Some test".to_string(),
+            subcommands: vec![],
             options: vec![Flag::new(
                 "-h --help",
                 "Output help information for a command",
             )],
+            parent: Box::new(None),
         };
 
         let mut auto_cmd = Cmd::new();
