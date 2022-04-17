@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::parser::core_parser::Parser;
 use crate::parser::Argument;
+use crate::parser::Parser;
 
 use super::parser::{Cmd, Flag};
 use super::ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};
