@@ -206,7 +206,7 @@ impl Program {
         let parent = if self
             .cmds
             .iter()
-            .any(|c| c.get_name() == &first_arg || c.get_alias() == &first_arg)
+            .any(|c| c.get_name() == first_arg || c.get_alias() == first_arg)
         {
             "cmd"
         } else {
