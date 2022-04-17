@@ -5,4 +5,5 @@ pub mod flags;
 
 pub use args::Argument;
 pub use commands::Cmd;
+pub use core_parser::Parser;
 pub use flags::{resolve_flag, Flag};

@@ -49,6 +49,10 @@ impl<'a> Parser<'a> {
                             std::process::exit(0);
                         }
                     }
+                } else if flg.short == "-v" && parent == "program" {
+                    program.emit(Event::OutputVersion, program.get_version());
+                    program.output_version_info();
+                    std::process::exit(0);
                 }
 
                 match flg.get_matches(idx, raw_args) {
@@ -80,6 +84,11 @@ impl<'a> Parser<'a> {
                         std::process::exit(1)
                     }
                 };
+            } else if arg.starts_with("-") {
+                program.emit(Event::UnknownOption, arg);
+                let msg = format!("Unknown option \"{}\"", arg);
+                program.output_help(&msg);
+                std::process::exit(1);
             }
         }
 
