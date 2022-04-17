@@ -20,6 +20,14 @@ impl<'a> Parser<'a> {
         parent: &str,
         raw_args: &[String],
     ) -> (HashMap<String, String>, HashMap<String, String>) {
+        if raw_args.is_empty() {
+            match parent {
+                "cmd" => self.cmd.unwrap().output_command_help(self.program, ""),
+                _ => self.program.output_help(""),
+            }
+            std::process::exit(1);
+        }
+
         let mut values = HashMap::new();
         let mut options = HashMap::new();
 
