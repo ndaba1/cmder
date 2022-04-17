@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use super::super::ui::{Designation, Formatter, FormatterRules};
+use crate::utils::print_help;
+
 use super::super::Program;
 use super::{Argument, Flag};
 
@@ -27,7 +28,7 @@ pub struct Cmd {
     subcommands: Vec<Self>,
 
     /// A subcommand stores the ref to its parent command
-    parent: Box<Option<Cmd>>,
+    pub parent: Box<Option<Cmd>>,
 
     /// The callback is a closure that takes in two hashmaps, each of which contain string keys and values, the first hashmap contains all the values of the params to the given command, while the second hashmap contains the metadata for any flags passed to the command and their values if any.
     pub callback: fn(HashMap<String, String>, HashMap<String, String>) -> (),
@@ -96,6 +97,10 @@ impl Cmd {
         &self.subcommands
     }
 
+    pub fn is_subcommand(&self) -> bool {
+        self.parent.is_some()
+    }
+
     /// A method used to search for a given subcommand from a string slice matching either the subcommand's name or its alias.
     pub fn find_subcmd(&self, val: &str) -> Option<&Cmd> {
         self.subcommands
@@ -154,58 +159,7 @@ impl Cmd {
     }
 
     pub fn output_command_help(&self, prog: &Program, err: &str) {
-        let mut fmtr = Formatter::new(prog.get_theme().to_owned());
-
-        use Designation::*;
-
-        fmtr.add(Description, &format!("\n{}\n", self.description));
-        fmtr.add(Headline, "\nUSAGE: \n");
-
-        let mut params = String::new();
-        for p in &self.params {
-            params.push_str(p.literal.as_str());
-            params.push(' ');
-        }
-
-        fmtr.add(Keyword, &format!("   {} ", prog.get_bin_name()));
-
-        if self.parent.is_some() {
-            let parent = self.parent.clone();
-            let cmd = parent.unwrap();
-            fmtr.add(Keyword, &format!("{} ", cmd.get_name()))
-        }
-
-        fmtr.add(Keyword, &format!("{} ", self.name));
-
-        if !self.subcommands.is_empty() {
-            fmtr.add(Description, "<SUB-COMMAND> ")
-        }
-
-        fmtr.add(Description, &format!("[options] {} \n", params.trim()));
-
-        fmtr.add(Headline, "\nOPTIONS: \n");
-        fmtr.format(
-            FormatterRules::Option(prog.get_pattern().to_owned()),
-            Some(self.options.clone()),
-            None,
-            None,
-        );
-
-        if !self.subcommands.is_empty() {
-            fmtr.add(Headline, "\nSUB-COMMANDS: \n");
-            fmtr.format(
-                FormatterRules::Cmd(prog.get_pattern().clone()),
-                None,
-                Some(self.subcommands.clone()),
-                None,
-            );
-        }
-
-        if !err.is_empty() {
-            fmtr.add(Error, &format!("\nError: {}\n", err))
-        }
-
-        fmtr.print();
+        print_help(prog, Some(self), err);
     }
 }
 
