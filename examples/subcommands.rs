@@ -10,8 +10,10 @@ fn main() {
         .author("vndaba")
         .description("An example of a program with subcommands");
 
+    // The docker image example command
     let mut img_cmd = program.command("image");
 
+    // You can then chain the subcommand method then invoke the construct method as the final method.
     img_cmd
         .subcommand("ls")
         .alias("l")
@@ -48,6 +50,7 @@ fn main() {
         .alias("i")
         .build(&mut program);
 
+    // The docker container example command
     let mut cont_cmd = program.command("container");
 
     cont_cmd
