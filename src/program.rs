@@ -203,12 +203,24 @@ impl Program {
         }
 
         let first_arg = args[0].to_lowercase();
+        let mut parent_cmd: Option<Cmd> = None;
         let parent = if self
             .cmds
             .iter()
             .any(|c| c.get_name() == first_arg || c.get_alias() == first_arg)
         {
             "cmd"
+        } else if self.cmds.iter().any(|c| {
+            if c.get_subcommands()
+                .iter()
+                .any(|s| s.get_name() == first_arg || s.get_alias() == first_arg)
+            {
+                parent_cmd = Some(c.clone());
+                return true;
+            }
+            false
+        }) {
+            "subcmd"
         } else {
             "program"
         };
@@ -216,8 +228,26 @@ impl Program {
         match parent {
             "cmd" => {
                 let cmd = self.get_cmd(&first_arg).unwrap();
+
+                if args.len() >= 2
+                    && cmd
+                        .get_subcommands()
+                        .iter()
+                        .any(|sc| sc.get_alias() == args[1] || sc.get_name() == args[1])
+                {
+                    self._parse(args[1..].to_vec())
+                } else {
+                    let parser = Parser::new(self, Some(cmd));
+                    let (values, options) = parser.parse(parent, &args[1..].to_vec());
+                    (cmd.callback)(values, options);
+                }
+            }
+            "subcmd" => {
+                let p_cmd = parent_cmd.unwrap();
+                let cmd = p_cmd.find_subcmd(&first_arg).unwrap();
+
                 let parser = Parser::new(self, Some(cmd));
-                let (values, options) = parser.parse(parent, &args[1..].to_vec());
+                let (values, options) = parser.parse("cmd", &args[1..].to_vec());
                 (cmd.callback)(values, options);
             }
             _ => {
