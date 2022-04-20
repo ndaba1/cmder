@@ -20,17 +20,11 @@ impl<'a> Parser<'a> {
         parent: &str,
         raw_args: &[String],
     ) -> (HashMap<String, String>, HashMap<String, String>) {
-        if raw_args.is_empty() {
-            match parent {
-                "cmd" => {
-                    let cmd = self.cmd.unwrap();
+        if raw_args.is_empty() && parent == "cmd" {
+            let cmd = self.cmd.unwrap();
 
-                    if !cmd.get_subcommands().is_empty() {
-                        cmd.output_command_help(self.program, "")
-                    }
-                }
-
-                _ => {}
+            if !cmd.get_subcommands().is_empty() {
+                cmd.output_command_help(self.program, "")
             }
         }
 

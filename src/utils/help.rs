@@ -19,7 +19,7 @@ pub fn print_help(program: &Program, cmd: Option<&Cmd>, error: &str) {
 
     if let Some(cmd) = &cmd {
         let mut params = String::new();
-        for p in cmd.get_cmd_input().to_owned() {
+        for p in cmd.get_cmd_input() {
             params.push_str(p.literal.as_str());
             params.push(' ');
         }
@@ -102,16 +102,14 @@ pub fn print_help(program: &Program, cmd: Option<&Cmd>, error: &str) {
                 None,
             );
         }
-    } else {
-        if !program.get_all_cmds().is_empty() {
-            fmtr.add(Headline, "\nCOMMANDS: \n");
-            fmtr.format(
-                FormatterRules::Cmd(program.get_pattern().clone()),
-                None,
-                Some(program.get_all_cmds().clone()),
-                None,
-            );
-        }
+    } else if !program.get_all_cmds().is_empty() {
+        fmtr.add(Headline, "\nCOMMANDS: \n");
+        fmtr.format(
+            FormatterRules::Cmd(program.get_pattern().clone()),
+            None,
+            Some(program.get_all_cmds().clone()),
+            None,
+        );
     }
 
     if !error.is_empty() {
