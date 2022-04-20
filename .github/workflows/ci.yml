@@ -19,6 +19,7 @@ jobs:
         with:
           toolchain: stable
 
+      - run: cargo fmt
       - run: cargo test
 
  
