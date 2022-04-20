@@ -42,7 +42,9 @@ program.on(Event::OutputVersion, |p, v| {
     });
 ```
 
-Refer to docs.rs for full documentation on the crate.
+Refer to docs.rs for full documentation on the crate. Also check out the repository on github for examples of crate usage [here](https://github.com/ndaba1/cmder).
+
+If you found this crate useful, consider [starring this repo](https://github.com/ndaba1/cmder).
 
 ## Contributing
 
