@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
-use crate::parser::Argument;
-use crate::parser::Parser;
+use crate::parser::{Argument, Cmd, Flag, Parser};
+use crate::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
 use crate::utils::print_help;
 
-use super::parser::{Cmd, Flag};
-use super::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
 use super::{Event, EventEmitter};
 
 type Callback = fn(HashMap<String, String>, HashMap<String, String>) -> ();
