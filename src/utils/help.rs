@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::{parser::Cmd, Designation, Event, Formatter, FormatterRules, Program};
 
 pub fn print_help(program: &Program, cmd: Option<&Cmd>, error: &str) {
@@ -123,4 +125,13 @@ pub fn print_help(program: &Program, cmd: Option<&Cmd>, error: &str) {
     } else {
         program.emit(Event::OutputHelp, "")
     }
+}
+
+pub fn print_error(error: &str, program: &Program) {
+    let mut fmtr = Formatter::new(program.get_theme().to_owned());
+
+    use Designation::*;
+    fmtr.add(Error, error);
+
+    fmtr.print();
 }
