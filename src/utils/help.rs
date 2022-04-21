@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::{parser::Cmd, Designation, Event, Formatter, FormatterRules, Program};
 
 pub fn print_help(program: &Program, cmd: Option<&Cmd>, error: &str) {

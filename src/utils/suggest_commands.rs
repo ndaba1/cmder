@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 use crate::parser::Cmd;
@@ -25,8 +27,5 @@ pub fn suggest(val: &str, list: &[Cmd]) -> Option<String> {
 
     let ans = &cmd_map.iter().find(|(_k, v)| **v >= MIN_MATCH_SIZE);
 
-    match ans {
-        Some((k, _v)) => Some(k.to_string()),
-        None => None,
-    }
+    ans.as_ref().map(|(k, _v)| k.to_string())
 }
