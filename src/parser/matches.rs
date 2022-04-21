@@ -12,13 +12,13 @@ struct ParserMatches {
 }
 
 struct FlagsConfig {
-    cursor_pstn: i32,
+    cursor_index: i32,
     flag: Flag,
     args: HashMap<String, String>,
 }
 
 struct CommandConfig {
-    cursor_pstn: i32,
+    cursor_index: i32,
     command: Cmd,
     is_subcommand: bool,
     args: HashMap<String, String>,
