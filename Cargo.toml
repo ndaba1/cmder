@@ -4,9 +4,32 @@ version = "0.5.1"
 edition = "2021"
 description="A simple, lightweight, command line argument parser for rust codebases"
 repository="https://github.com/ndaba1/cmder.git"
+documentation = "https://docs.rs/cmder/"
+categories = ["command-line-interface"]
 license="MIT"
+keywords = [
+	"cli",
+	"argument-parser",
+	"cmder",
+	"command-line-parser"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 termcolor = "1.1.2"
+
+[dev-dependencies]
+criterion = "0.3.5"
+
+[[example]]
+name = "echo"
+
+[[example]]
+name = "custom_theme"
+
+[[example]]
+name = "basic_usage"
+
+[[example]]
+name = "subcommands"
