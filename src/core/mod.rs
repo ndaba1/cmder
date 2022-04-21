@@ -11,3 +11,4 @@ mod settings;
 
 pub use events::{Event, EventEmitter};
 pub use program::Program;
+pub use settings::ProgramSettings;

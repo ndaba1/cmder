@@ -7,8 +7,16 @@ pub struct ProgramSettings {
     pub suggest_cmds: bool,
 }
 
+#[allow(unused)]
+pub enum Settings {
+    ShowHelpOnError,
+    EnableCommandSuggestion,
+    HideCommandAliases,
+    MaxSubcommandLevel,
+}
+
 impl ProgramSettings {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             theme: Theme::default(),
             pattern: Pattern::Legacy,
@@ -16,6 +24,8 @@ impl ProgramSettings {
             suggest_cmds: true,
         }
     }
+
+    // fn set(settng: Settings) -> fn() -> () {}
 }
 
 impl Default for ProgramSettings {

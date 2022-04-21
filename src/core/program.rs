@@ -4,7 +4,7 @@ use crate::parser::{Argument, Cmd, Flag, Parser};
 use crate::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
 use crate::utils::print_help;
 
-use super::{Event, EventEmitter};
+use super::{Event, EventEmitter, ProgramSettings};
 
 type Callback = fn(HashMap<String, String>, HashMap<String, String>) -> ();
 /// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
@@ -36,13 +36,8 @@ pub struct Program {
     /// An instance of the EventEmitter struct that the program can use to emit and listen to events. The program also contains utility functions to interface with the event_emitter which it contains.
     event_emitter: EventEmitter,
 
-    /// Refers to the pattern to be used by the proram when printing to stdout. Patterns can be selected from the default ones or you can create your own pattern.
-    /// This field is customized by calling the `set_pattern` method
-    pattern: Pattern,
-
-    /// Similar to the pattern field in that they are both concerned with stdout. The theme hover differs in that it refers to the color schemes to be used by the program.
-    /// There is a default theme, some predefined themes and you can also create your own custom theme.
-    theme: Theme,
+    /// A collection of settings including the theme and pattern used by the program that determine its default behavior
+    settings: ProgramSettings,
 }
 
 impl Program {
@@ -52,13 +47,12 @@ impl Program {
             cmds: vec![],
             name: "".to_owned(),
             description: "".to_owned(),
-            theme: Theme::default(),
             author: "".to_owned(),
             callback: None,
-            pattern: Pattern::Legacy,
             version: "0.1.0".to_owned(),
             arguments: vec![],
             event_emitter: EventEmitter::new(),
+            settings: ProgramSettings::default(),
             options: vec![
                 Flag::new("-h --help", "Output help information for the program"),
                 Flag::new("-v --version", "Output the version info for the program"),
@@ -129,12 +123,12 @@ impl Program {
 
     /// A getter for the theme of the program
     pub fn get_theme(&self) -> &Theme {
-        &self.theme
+        &self.settings.theme
     }
 
     /// A getter for the configured pattern of the program
     pub fn get_pattern(&self) -> &Pattern {
-        &self.pattern
+        &self.settings.pattern
     }
 
     /// Returns a reference to the vector containing all the options configured into the program.
@@ -312,20 +306,20 @@ impl Program {
 
     /// This method receives a pattern and simply modifies the pattern of the program.
     pub fn set_pattern(&mut self, ptrn: Pattern) {
-        self.pattern = ptrn
+        self.settings.pattern = ptrn
     }
 
     /// Similar to the set_pattern() method only that this one is used to set a theme from a list of predefined ones.
     pub fn set_theme(&mut self, theme: PredefinedThemes) {
         match theme {
-            PredefinedThemes::Plain => self.theme = Theme::plain(),
-            PredefinedThemes::Colorful => self.theme = Theme::colorful(),
+            PredefinedThemes::Plain => self.settings.theme = Theme::plain(),
+            PredefinedThemes::Colorful => self.settings.theme = Theme::colorful(),
         }
     }
 
     /// When you wish to define your own custom theme, the set_custom_theme method is what is to be used. The method receives a theme struct with all the  fields configured accordingly.
     pub fn set_custom_theme(&mut self, theme: Theme) {
-        self.theme = theme
+        self.settings.theme = theme
     }
 
     /// This method is used to output help information to standard out. It uses the themes and patterns configured for the program.
@@ -335,7 +329,7 @@ impl Program {
 
     /// Simply outputs the name and version of the program. As well as the author information and program description.
     pub fn output_version_info(&self) {
-        let mut fmtr = Formatter::new(self.theme.clone());
+        let mut fmtr = Formatter::new(self.settings.theme.clone());
 
         use Designation::*;
 
@@ -367,13 +361,12 @@ mod test {
             name: "".to_owned(),
             description: "a test".to_string(),
             callback: None,
-            theme: Theme::default(),
             author: "me".to_string(),
             options: vec![],
-            pattern: Pattern::Legacy,
             version: "0.1.0".to_string(),
             arguments: vec![],
             event_emitter: EventEmitter::new(),
+            settings: ProgramSettings::default(),
         };
 
         assert_eq!(auto.author, manual.author);
