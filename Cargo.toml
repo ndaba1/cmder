@@ -23,7 +23,7 @@ exclude = [
 termcolor = "1.1.2"
 
 [dev-dependencies]
-criterion = "0.3.5"
+criterion = {version = "0.3.5", features = ["html_reports"]}
 
 [[example]]
 name = "echo"
@@ -36,3 +36,7 @@ name = "basic_usage"
 
 [[example]]
 name = "subcommands"
+
+[[bench]]
+name = "default"
+harness = false
