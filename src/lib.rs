@@ -266,7 +266,7 @@
 mod parser;
 
 /// A module housing all the core functionality of the library such as events, the program module itself, settings and other core functionality
-mod core;
+pub mod core;
 
 /// A module to house some utilities used by the crate itself.
 mod utils;

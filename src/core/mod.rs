@@ -9,6 +9,8 @@ mod events;
 /// The settings houses the functionality used to configure the settings of the program which determine the default behavior of the program.
 mod settings;
 
+pub mod new_program;
+
 pub use events::{Event, EventEmitter};
 pub use program::Program;
 pub use settings::ProgramSettings;
