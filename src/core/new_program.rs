@@ -19,6 +19,7 @@ impl Program {
             alias: None,
             arguments: vec![],
             flags: vec![],
+            options: vec![],
             description: "",
             subcommands: Box::new(vec![]),
             callback: None,
@@ -34,6 +35,7 @@ pub struct Command<'p> {
     alias: Option<&'p str>,
     arguments: Vec<Argument>,
     flags: Vec<Flag>,
+    options: Vec<Flag>,
     description: &'p str,
     parent: Option<&'p Command<'p>>,
     subcommands: Box<Vec<&'p Command<'p>>>,
@@ -78,6 +80,7 @@ impl<'p> Command<'p> {
             arguments: vec![],
             description: "",
             flags: vec![],
+            options: vec![],
             subcommands: Box::new(vec![]),
             callback: None,
             metadata: None,
@@ -234,8 +237,14 @@ impl<'p> Command<'p> {
     pub fn option(&mut self, val: &str, desc: &str) -> &mut Self {
         let flag = Flag::new(val, desc);
 
-        if !self.flags.contains(&flag) {
-            self.flags.push(flag);
+        if flag.params.is_empty() {
+            if !self.flags.contains(&flag) {
+                self.flags.push(flag);
+            }
+        } else {
+            if !self.options.contains(&flag) {
+                self.options.push(flag)
+            }
         }
 
         self
