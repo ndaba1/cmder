@@ -10,7 +10,8 @@ fn main() {
         .bin_name("echo");
 
     program
-        .subcommand("test <app-name>")
+        .subcommand("test")
+        .argument("<app-name>", "Pass the name of the app to test")
         .alias("t")
         .description("A test subcommand")
         .option("-a --all", "Run all the configured tests")

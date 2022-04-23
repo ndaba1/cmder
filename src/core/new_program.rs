@@ -123,7 +123,7 @@ impl<'p> Command<'p> {
         if let Some(meta) = &self.metadata {
             meta.version
         } else {
-            ""
+            "0.1.0"
         }
     }
 
@@ -203,7 +203,6 @@ impl<'p> Command<'p> {
 
     pub fn build(&'p mut self, parent_cmd: &'p mut Self) -> &Self {
         // TODO: Find a way to achieve this without using the build method
-        // self._add_parent(parent_cmd)._add_sub_cmd(self);
         parent_cmd._add_sub_cmd(self);
         self
     }
