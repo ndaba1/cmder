@@ -18,8 +18,17 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt
 
-      - run: cargo fmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Build the crate
+        run: cargo build
+
+      - name: Run the tests
       - run: cargo test
 
  

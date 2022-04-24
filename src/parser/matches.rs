@@ -51,9 +51,4 @@ impl<'a> ParserMatches<'a> {
         }
     }
 
-    fn get_matched_cmd() {}
 
-    fn get_values() {}
-
-    fn get_options() {}
-}

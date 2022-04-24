@@ -12,11 +12,6 @@ pub fn build_old(c: &mut Criterion) {
                 .description("Benchmarks")
                 .version("0.1.0");
 
-            program.command("empty").build(&mut program);
-        })
-    });
-}
-
 pub fn build_new(c: &mut Criterion) {
     use cmder::core::new_program::Program;
     c.bench_function("build new", |b| {
@@ -25,11 +20,32 @@ pub fn build_new(c: &mut Criterion) {
 
             program
                 .author("vndaba")
-                .bin_name("bench")
-                .description("Benchmarks")
                 .version("0.1.0");
+                .description("A simple demo cli")
+                .bin_name("demo");
 
-            program.subcommand("empty").build(&mut program);
+            program
+                .command("greet <name>")
+                .alias("g")
+                .description("Simply greets the provided name")
+                .option("-d --default", "Override the provided name")
+                .option("-c --custom <GREETING...>", "Pass a custom greeting to use")
+                .action(|values, options| {
+                    let mut name = values.get("name").unwrap().as_str();
+
+                    let greeting = if options.contains_key("GREETING") {
+                        options.get("GREETING").unwrap().to_owned()
+                    } else {
+                        String::from("Ahoy!")
+                    };
+
+                    if options.contains_key("default") {
+                        name = "Kemosabe";
+                    }
+
+                    println!("{} {}", greeting, name);
+                })
+                .build(&mut program);
         })
     });
 }
