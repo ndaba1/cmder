@@ -1,5 +1,6 @@
 use crate::{Pattern, Theme};
 
+#[derive(Debug, Clone)]
 pub struct ProgramSettings {
     pub theme: Theme,
     pub pattern: Pattern,

@@ -1,23 +1,26 @@
-use cmder::Program;
 use criterion::{criterion_group, criterion_main, Criterion};
 
-pub fn build_empty(c: &mut Criterion) {
-    c.bench_function("build empty", |b| {
-        b.iter(|| {
-            let mut program = Program::new();
-
-            program.command("empty").build(&mut program);
-        })
-    });
-}
-
-pub fn build_one(c: &mut Criterion) {
-    c.bench_function("build one", |b| {
+pub fn build_old(c: &mut Criterion) {
+    use cmder::Program;
+    c.bench_function("build old", |b| {
         b.iter(|| {
             let mut program = Program::new();
 
             program
                 .author("vndaba")
+                .bin_name("bench")
+                .description("Benchmarks")
+                .version("0.1.0");
+
+pub fn build_new(c: &mut Criterion) {
+    use cmder::core::new_program::Program;
+    c.bench_function("build new", |b| {
+        b.iter(|| {
+            let mut program = Program::new();
+
+            program
+                .author("vndaba")
+                .version("0.1.0");
                 .description("A simple demo cli")
                 .bin_name("demo");
 
@@ -47,5 +50,5 @@ pub fn build_one(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, build_empty, build_one);
+criterion_group!(benches, build_old, build_new);
 criterion_main!(benches);

@@ -5,7 +5,8 @@ use super::Program;
 /// A simple type to be used to pass callbacks to the .action() method on a command.
 type Listener = fn(&Program, String) -> ();
 
-/// The EventEmitter struct holds all functionality for emitting and receiving all events occurring in the program.
+#[derive(Clone)]
+/// The EventEmitter strPartialEq, Eq, Hash, uct holds all functionality for emitting and receiving all events occurring in the program.
 /// It contains only a single field being the listeners themselves.
 pub struct EventEmitter {
     /// The listeners field is simply a hashmap with keys containing Event variants and the values containing a vector of listeners. Whenever an event is emitted, The listeners hashmap is queried for any callbacks for the said event and if any are found, then they are executed sequentially.
