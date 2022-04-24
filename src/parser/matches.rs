@@ -50,5 +50,4 @@ impl<'a> ParserMatches<'a> {
             args: ArgsConfig::new(),
         }
     }
-
 }
