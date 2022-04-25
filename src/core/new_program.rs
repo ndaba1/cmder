@@ -4,10 +4,14 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::{matches::ParserMatches, resolve_flag, Argument, Flag},
+    parser::{
+        matches::{FlagsConfig, ParserMatches},
+        resolve_flag, Argument, Flag,
+    },
     EventEmitter, Pattern, Theme,
 };
 
+use super::super::parser::flags::{resolve_arg, NewFlag, NewOption};
 use super::ProgramSettings;
 
 pub struct Program {}
@@ -18,7 +22,10 @@ impl Program {
             name: "",
             alias: None,
             arguments: vec![],
-            flags: vec![],
+            flags: vec![
+                NewFlag::new("-h", "--help", "Print out help information"),
+                NewFlag::new("-v", "--version", "Print out version information"),
+            ],
             options: vec![],
             description: "",
             subcommands: Box::new(vec![]),
@@ -34,8 +41,8 @@ pub struct Command<'p> {
     name: &'p str,
     alias: Option<&'p str>,
     arguments: Vec<Argument>,
-    flags: Vec<Flag>,
-    options: Vec<Flag>,
+    flags: Vec<NewFlag<'p>>,
+    options: Vec<NewOption<'p>>,
     description: &'p str,
     parent: Option<&'p Command<'p>>,
     subcommands: Box<Vec<&'p Command<'p>>>,
@@ -147,8 +154,12 @@ impl<'p> Command<'p> {
         self.alias
     }
 
-    pub fn get_flags(&self) -> &Vec<Flag> {
+    pub fn get_flags(&self) -> &Vec<NewFlag> {
         &self.flags
+    }
+
+    pub fn get_options(&self) -> &Vec<NewOption> {
+        &self.options
     }
 
     pub fn get_arguments(&self) -> &Vec<Argument> {
@@ -234,17 +245,23 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn option(&mut self, val: &str, desc: &str) -> &mut Self {
-        let flag = Flag::new(val, desc);
+    pub fn option(&mut self, val: &'p str, desc: &'p str) -> &mut Self {
+        let values: Vec<_> = val.split_whitespace().collect();
 
-        if flag.params.is_empty() {
-            if !self.flags.contains(&flag) {
-                self.flags.push(flag);
+        match values.len() {
+            2 => {
+                let flag = NewFlag::new(values[0], values[1], desc);
+                if !self.flags.contains(&flag) {
+                    self.flags.push(flag)
+                }
             }
-        } else {
-            if !self.options.contains(&flag) {
-                self.options.push(flag)
+            val if val > 2 => {
+                let option = NewOption::new(values[0], values[1], desc, &values[2..]);
+                if !self.options.contains(&option) {
+                    self.options.push(option)
+                }
             }
+            _ => {}
         }
 
         self
@@ -264,7 +281,7 @@ impl<'p> Command<'p> {
 
     fn _parse(
         &'p self,
-        raw_args: &[&str],
+        raw_args: &'p [&'p str],
         root_cfg: Option<ParserMatches<'p>>,
     ) -> ParserMatches<'p> {
         if raw_args.is_empty() {
@@ -279,8 +296,10 @@ impl<'p> Command<'p> {
 
         // ["image", "ls", "-p", "80"]
         for (idx, arg) in raw_args.iter().enumerate() {
-            if let Some(flag) = resolve_flag(self.get_flags(), arg) {
+            if let Some(flag) = resolve_arg(&NewFlag::default(), self.get_flags(), arg) {
                 // handle flags input
+            } else if let Some(opt) = resolve_arg(&NewOption::default(), self.get_options(), arg) {
+                //handle opts input
             } else if let Some(sub_cmd) = self.find_subcommand(arg) {
                 // it is a subcommand/command
                 return sub_cmd._parse(&raw_args[1..], Some(config));
