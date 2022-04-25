@@ -2,20 +2,49 @@
 
 use crate::core::new_program::Command;
 
-use super::Flag;
+use super::flags::{NewFlag, NewOption};
 
 pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
     pub(crate) matched_subcmd: Option<CommandConfig<'pm>>,
     pub(crate) flags: Vec<FlagsConfig<'pm>>,
+    pub(crate) options: Vec<OptionsConfig<'pm>>,
     pub(crate) args: ArgsConfig<'pm>,
 }
 
 pub(crate) struct FlagsConfig<'a> {
+    pub(crate) cursor_index: usize,
+    pub(crate) flag: &'a NewFlag<'a>,
+    pub(crate) appearance_count: usize,
+}
+
+pub(crate) struct OptionsConfig<'o> {
     cursor_index: usize,
-    flag: Flag,
-    args: ArgsConfig<'a>,
+    option: NewOption<'o>,
+    args: ArgsConfig<'o>,
     appearance_count: usize,
+}
+
+impl<'o> OptionsConfig<'o> {
+    pub(crate) fn new() -> Self {
+        Self {
+            appearance_count: 0,
+            args: ArgsConfig::new(),
+            cursor_index: 0,
+            option: NewOption::default(),
+        }
+    }
+}
+
+impl<'d> Default for OptionsConfig<'d> {
+    fn default() -> Self {
+        Self {
+            appearance_count: 0,
+            args: ArgsConfig::new(),
+            cursor_index: 0,
+            option: NewOption::default(),
+        }
+    }
 }
 
 pub(crate) struct CommandConfig<'b> {
@@ -48,6 +77,7 @@ impl<'a> ParserMatches<'a> {
             flags: vec![],
             matched_subcmd: None,
             args: ArgsConfig::new(),
+            options: vec![OptionsConfig::default()],
         }
     }
 }
