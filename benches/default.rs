@@ -12,7 +12,11 @@ pub fn build_old(c: &mut Criterion) {
                 .description("Benchmarks")
                 .version("0.1.0");
 
-            program.command("empty").build(&mut program);
+            program
+                .command("empty")
+                .option("-x --extra", "Something extra")
+                .option("-x --extra", "Something extra")
+                .build(&mut program);
         })
     });
 }
@@ -29,7 +33,11 @@ pub fn build_new(c: &mut Criterion) {
                 .description("Benchmarks")
                 .version("0.1.0");
 
-            program.subcommand("empty").build(&mut program);
+            program
+                .subcommand("empty")
+                .option("-x --extra", "Something extra")
+                .option("-x --extra", "Something extra")
+                .build(&mut program);
         })
     });
 }

@@ -1,4 +1,84 @@
+#![allow(unused)]
+
 use super::args::Argument;
+
+pub(crate) trait Resolution<'a> {
+    fn resolve(&self, list: &'a Vec<Self>, val: &'a str) -> Option<&Self>
+    where
+        Self: Sized;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewOption<'op> {
+    pub short_version: &'op str,
+    pub long_version: &'op str,
+    pub arguments: Vec<Argument>,
+    pub description: &'op str,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewFlag<'f> {
+    pub short_version: &'f str,
+    pub long_version: &'f str,
+    pub description: &'f str,
+}
+
+impl<'a> NewFlag<'a> {
+    pub(crate) fn new(short: &'a str, long: &'a str, desc: &'a str) -> Self {
+        Self {
+            short_version: short,
+            long_version: long,
+            description: desc,
+        }
+    }
+}
+
+impl<'a> Resolution<'a> for NewFlag<'a> {
+    fn resolve(&self, list: &'a Vec<Self>, val: &'a str) -> Option<&Self> {
+        list.iter()
+            .find(|f| f.short_version == val || f.long_version == val)
+    }
+}
+
+impl<'d> Default for NewFlag<'d> {
+    fn default() -> Self {
+        Self::new("", "", "")
+    }
+}
+
+impl<'b> NewOption<'b> {
+    pub(crate) fn new(short: &'b str, long: &'b str, desc: &'b str, args: &[&str]) -> Self {
+        let mut arguments = vec![];
+        for a in args.iter() {
+            arguments.push(Argument::new(a, None))
+        }
+
+        Self {
+            short_version: short,
+            long_version: long,
+            description: desc,
+            arguments,
+        }
+    }
+}
+
+impl<'b> Resolution<'b> for NewOption<'b> {
+    fn resolve(&self, list: &'b Vec<Self>, val: &'b str) -> Option<&Self> {
+        list.iter()
+            .find(|f| f.short_version == val || f.long_version == val)
+    }
+}
+
+impl<'d> Default for NewOption<'d> {
+    fn default() -> Self {
+        Self {
+            short_version: "",
+            long_version: "",
+            arguments: vec![Argument::new("", None)],
+            description: "",
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flag {
@@ -94,4 +174,11 @@ pub fn resolve_flag(list: &[Flag], val: &str) -> Option<Flag> {
         }
     }
     flag
+}
+
+pub(crate) fn resolve_arg<'a, T>(arg: &'a T, list: &'a Vec<T>, val: &'a str) -> Option<&'a T>
+where
+    T: Resolution<'a>,
+{
+    arg.resolve(list, val)
 }
