@@ -2,6 +2,13 @@ use std::collections::HashMap;
 
 use super::Program;
 
+#[allow(unused)]
+pub struct EventConfig<'e> {
+    args: &'e [&'e str],
+    event_type: Event,
+    additional_info: &'e str,
+}
+
 /// A simple type to be used to pass callbacks to the .action() method on a command.
 type Listener = fn(&Program, String) -> ();
 
