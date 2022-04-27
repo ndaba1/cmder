@@ -17,6 +17,7 @@ use super::ProgramSettings;
 pub struct Program {}
 
 impl Program {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Command<'static> {
         Command {
             name: "",
