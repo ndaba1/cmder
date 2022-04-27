@@ -14,7 +14,7 @@ pub struct ParserMatches<'pm> {
 
 pub(crate) struct FlagsConfig<'a> {
     pub(crate) cursor_index: usize,
-    pub(crate) flag: &'a NewFlag<'a>,
+    pub(crate) flag: NewFlag<'a>,
     pub(crate) appearance_count: usize,
 }
 
