@@ -288,8 +288,8 @@ impl<'p> Command<'p> {
             // handle empty args
         }
 
-        let mut config = if root_cfg.is_some() {
-            root_cfg.unwrap()
+        let mut config = if let Some(cfg) = root_cfg {
+            cfg
         } else {
             ParserMatches::new(raw_args.len())
         };
