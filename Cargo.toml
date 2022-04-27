@@ -11,7 +11,8 @@ keywords = [
 	"cli",
 	"argument-parser",
 	"cmder",
-	"command-line-parser"
+	"command-line-parser",
+	"commander"
 ]
 exclude = [
     ".github"
