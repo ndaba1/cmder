@@ -3,7 +3,7 @@
 use super::args::Argument;
 
 pub(crate) trait Resolution<'a> {
-    fn resolve(&self, list: &'a Vec<Self>, val: &'a str) -> Option<&Self>
+    fn resolve(&self, list: &'a [Self], val: &'a str) -> Option<&Self>
     where
         Self: Sized;
 }
@@ -34,7 +34,7 @@ impl<'a> NewFlag<'a> {
 }
 
 impl<'a> Resolution<'a> for NewFlag<'a> {
-    fn resolve(&self, list: &'a Vec<Self>, val: &'a str) -> Option<&Self> {
+    fn resolve(&self, list: &'a [Self], val: &'a str) -> Option<&Self> {
         list.iter()
             .find(|f| f.short_version == val || f.long_version == val)
     }
@@ -63,7 +63,7 @@ impl<'b> NewOption<'b> {
 }
 
 impl<'b> Resolution<'b> for NewOption<'b> {
-    fn resolve(&self, list: &'b Vec<Self>, val: &'b str) -> Option<&Self> {
+    fn resolve(&self, list: &'b [Self], val: &'b str) -> Option<&Self> {
         list.iter()
             .find(|f| f.short_version == val || f.long_version == val)
     }
