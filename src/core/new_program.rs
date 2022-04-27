@@ -269,6 +269,9 @@ impl<'p> Command<'p> {
     }
 
     // Settings
+    pub fn on() {}
+
+    pub fn emit() {}
 
     // Parser
     fn _is_subcommand(&self) -> bool {
