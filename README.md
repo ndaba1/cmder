@@ -6,7 +6,7 @@
 <img alt="Crates.io" src="https://img.shields.io/crates/v/cmder">
 </p>
 
-This crate aims to provide an easy-to-use and extensible interface to build command-line programs with no sacrifice in performance. The syntax of the builder interface can be attributed to the javascript package `commander-js`
+This crate aims to provide an easy-to-use and extensible API to build command-line programs with no sacrifice in performance. The syntax of the builder interface can be attributed to the javascript package `commander-js`
 
 ```rust
 
