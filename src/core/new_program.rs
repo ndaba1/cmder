@@ -8,11 +8,14 @@ use crate::{
         matches::{FlagsConfig, ParserMatches},
         resolve_flag, Argument, Flag,
     },
-    EventEmitter, Pattern, Theme,
+    Event, Pattern, Theme,
 };
 
-use super::super::parser::flags::{resolve_arg, NewFlag, NewOption};
-use super::ProgramSettings;
+use super::{
+    super::parser::flags::{resolve_arg, NewFlag, NewOption},
+    events::{EventConfig, NewEventEmitter},
+};
+use super::{events::NewListener, ProgramSettings};
 
 pub struct Program {}
 
@@ -57,7 +60,7 @@ pub struct CmdMetadata<'a> {
     author: &'a str,
     theme: Theme,
     pattern: Pattern,
-    emitter: EventEmitter,
+    emitter: NewEventEmitter,
     settings: ProgramSettings,
 }
 
@@ -68,7 +71,7 @@ impl<'c> CmdMetadata<'c> {
             author: "Rustacean",
             theme: Theme::default(),
             pattern: Pattern::Legacy,
-            emitter: EventEmitter::default(),
+            emitter: NewEventEmitter::default(),
             settings: ProgramSettings::default(),
         }
     }
@@ -269,9 +272,17 @@ impl<'p> Command<'p> {
     }
 
     // Settings
-    pub fn on() {}
+    pub fn on(&mut self, event: Event, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.on(event, cb);
+        }
+    }
 
-    pub fn emit() {}
+    pub fn emit(&mut self, cfg: EventConfig) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.emit(cfg);
+        }
+    }
 
     // Parser
     fn _is_subcommand(&self) -> bool {
