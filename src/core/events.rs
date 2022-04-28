@@ -1,13 +1,17 @@
+#![allow(unused)]
 use std::collections::HashMap;
 
-use super::Program;
+use super::{new_program::Command, Program};
 
-#[allow(unused)]
 pub struct EventConfig<'e> {
     args: &'e [&'e str],
+    arg_count: usize,
     event_type: Event,
     additional_info: &'e str,
+    program_ref: &'e Command<'static>,
 }
+
+type NewListener = fn(EventConfig) -> ();
 
 /// A simple type to be used to pass callbacks to the .action() method on a command.
 type Listener = fn(&Program, String) -> ();
