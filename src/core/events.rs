@@ -10,6 +10,7 @@ pub struct EventConfig<'e> {
     event_type: Event,
     additional_info: &'e str,
     program_ref: &'e Command<'static>,
+    exit_code: usize,
 }
 
 impl<'a> EventConfig<'a> {
@@ -23,6 +24,10 @@ impl<'a> EventConfig<'a> {
 
     pub fn get_program(&self) -> &Command<'static> {
         self.program_ref
+    }
+
+    pub fn get_exit_code(&self) -> usize {
+        self.exit_code
     }
 }
 
@@ -63,7 +68,7 @@ impl NewEventEmitter {
                 cb(cfg);
             }
 
-            std::process::exit(10);
+            std::process::exit(cfg.get_exit_code() as i32);
         }
     }
 }
