@@ -7,10 +7,11 @@ use super::{new_program::Command, Program};
 pub struct EventConfig<'e> {
     args: &'e [&'e str],
     arg_count: usize,
+    exit_code: usize,
     event_type: Event,
+    matched_cmd: Option<&'e Command<'e>>,
     additional_info: &'e str,
     program_ref: &'e Command<'static>,
-    exit_code: usize,
 }
 
 impl<'a> EventConfig<'a> {
@@ -28,6 +29,10 @@ impl<'a> EventConfig<'a> {
 
     pub fn get_exit_code(&self) -> usize {
         self.exit_code
+    }
+
+    pub fn get_matched_cmd(&self) -> Option<&Command<'a>> {
+        self.matched_cmd
     }
 }
 
@@ -93,6 +98,8 @@ pub struct EventEmitter {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
+    EmptyArguments,
+
     /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
     MissingArgument,
