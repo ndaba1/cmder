@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use super::{new_program::Command, Program};
 
+#[derive(Clone, Copy)]
 pub struct EventConfig<'e> {
     args: &'e [&'e str],
     arg_count: usize,
@@ -11,7 +12,67 @@ pub struct EventConfig<'e> {
     program_ref: &'e Command<'static>,
 }
 
+impl<'a> EventConfig<'a> {
+    pub fn get_args(&self) -> Vec<&str> {
+        self.args.to_vec()
+    }
+
+    pub fn get_event(&self) -> Event {
+        self.event_type
+    }
+
+    pub fn get_program(&self) -> &Command<'static> {
+        self.program_ref
+    }
+}
+
 type NewListener = fn(EventConfig) -> ();
+
+pub struct NewEventEmitter {
+    listeners: HashMap<Event, Vec<NewListener>>,
+}
+
+impl NewEventEmitter {
+    pub fn new() -> Self {
+        Self {
+            listeners: HashMap::new(),
+        }
+    }
+
+    pub fn on(&mut self, event: Event, cb: NewListener) {
+        match self.listeners.get(&event) {
+            Some(lstnrs) => {
+                let mut temp = vec![];
+
+                temp.extend_from_slice(&lstnrs[..]);
+                temp.push(cb);
+
+                self.listeners.insert(event, temp);
+            }
+            None => {
+                self.listeners.insert(event, vec![cb]);
+            }
+        };
+    }
+
+    pub fn emit(&self, cfg: EventConfig) {
+        let event = cfg.get_event();
+
+        if let Some(lstnrs) = self.listeners.get(&event) {
+            for cb in lstnrs {
+                cb(cfg);
+            }
+
+            std::process::exit(10);
+        }
+    }
+}
+
+impl Default for NewEventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// A simple type to be used to pass callbacks to the .action() method on a command.
 type Listener = fn(&Program, String) -> ();
@@ -24,7 +85,7 @@ pub struct EventEmitter {
     listeners: HashMap<Event, Vec<Listener>>,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
     /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
