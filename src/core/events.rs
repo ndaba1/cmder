@@ -56,31 +56,7 @@ impl EventEmitter {
 
     /// Receives an event and the actual listener to be set then matches on the listener and adds to the listener to its desired vector.
     pub fn on(&mut self, event: Event, callback: Listener) {
-        use Event::*;
-
-        match event {
-            MissingArgument => {
-                self.add_listener(MissingArgument, callback);
-            }
-            OptionMissingArgument => {
-                self.add_listener(OptionMissingArgument, callback);
-            }
-            UnknownCommand => {
-                self.add_listener(UnknownCommand, callback);
-            }
-            UnknownOption => {
-                self.add_listener(UnknownOption, callback);
-            }
-            OutputHelp => {
-                self.add_listener(OutputHelp, callback);
-            }
-            OutputCommandHelp => {
-                self.add_listener(OutputCommandHelp, callback);
-            }
-            OutputVersion => {
-                self.add_listener(OutputVersion, callback);
-            }
-        }
+        self._add_listener(event, callback);
     }
 
     /// This method is called when events in the program occur. It simply checks for any listeners and then executes them in a sequential manner.
@@ -95,7 +71,7 @@ impl EventEmitter {
     }
 
     /// This method retrives the vector of existing callbacks if any and pushes the new listener to the vector
-    fn add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
+    fn _add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
         let existing = self.listeners.get(&event);
 
         match existing {
