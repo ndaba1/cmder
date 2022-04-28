@@ -31,8 +31,9 @@ impl<'a> EventConfig<'a> {
     }
 }
 
-type NewListener = fn(EventConfig) -> ();
+pub type NewListener = fn(EventConfig) -> ();
 
+#[derive(Clone)]
 pub struct NewEventEmitter {
     listeners: HashMap<Event, Vec<NewListener>>,
 }
