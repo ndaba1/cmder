@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::parser::{Argument, Cmd, Flag, Parser};
 use crate::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
-use crate::utils::print_help;
+use crate::utils::{print_help, suggest};
 
 use super::{Event, EventEmitter, ProgramSettings};
 
@@ -251,8 +251,13 @@ impl Program {
                     (self.callback.unwrap())(vals, opts);
                 } else {
                     self.emit(Event::UnknownCommand, &first_arg);
-                    let msg = format!("Unknown command \"{}\"", &first_arg);
-                    self.output_help(&msg);
+                    if let Some(cmd) = suggest(&first_arg, self.get_all_cmds()) {
+                        println!("error: Unknown command: {first_arg}");
+                        println!();
+                        println!("       did you mean \"{cmd}\"");
+                    }
+                    // let msg = format!("Unknown command \"{}\"", &first_arg);
+                    // self.output_help(&msg);
                     std::process::exit(1);
                 }
             }
