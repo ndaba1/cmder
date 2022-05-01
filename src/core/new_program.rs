@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::{
+    parse::{
         matches::{FlagsConfig, ParserMatches},
         resolve_flag, Argument, Flag,
     },
@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    super::parser::flags::{resolve_arg, NewFlag, NewOption},
+    super::parse::flags::{resolve_arg, NewFlag, NewOption},
     events::{EventConfig, NewEventEmitter},
 };
 use super::{events::NewListener, ProgramSettings};

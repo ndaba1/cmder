@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::{Argument, Cmd, Flag, Parser};
+use crate::parse::{Argument, Cmd, Flag, Parser};
 use crate::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
 use crate::utils::{print_help, suggest};
 

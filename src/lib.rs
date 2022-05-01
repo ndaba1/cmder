@@ -263,7 +263,7 @@
 //! Themes can also be customized by defining your own color palette to be used when printing out information.
 
 /// The parser modules contains all functionality for parsing arguments at the command level. It contains some submodules all involved in parsing arguments and flags.
-mod parser;
+mod parse;
 
 /// A module housing all the core functionality of the library such as events, the program module itself, settings and other core functionality
 pub mod core;
