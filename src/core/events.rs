@@ -1,6 +1,89 @@
+#![allow(unused)]
 use std::collections::HashMap;
 
-use super::Program;
+use super::{new_program::Command, Program};
+
+#[derive(Clone, Copy)]
+pub struct EventConfig<'e> {
+    args: &'e [&'e str],
+    arg_count: usize,
+    exit_code: usize,
+    event_type: Event,
+    matched_cmd: Option<&'e Command<'e>>,
+    additional_info: &'e str,
+    program_ref: &'e Command<'static>,
+}
+
+impl<'a> EventConfig<'a> {
+    pub fn get_args(&self) -> Vec<&str> {
+        self.args.to_vec()
+    }
+
+    pub fn get_event(&self) -> Event {
+        self.event_type
+    }
+
+    pub fn get_program(&self) -> &Command<'static> {
+        self.program_ref
+    }
+
+    pub fn get_exit_code(&self) -> usize {
+        self.exit_code
+    }
+
+    pub fn get_matched_cmd(&self) -> Option<&Command<'a>> {
+        self.matched_cmd
+    }
+}
+
+pub type NewListener = fn(EventConfig) -> ();
+
+#[derive(Clone)]
+pub struct NewEventEmitter {
+    listeners: HashMap<Event, Vec<NewListener>>,
+}
+
+impl NewEventEmitter {
+    pub fn new() -> Self {
+        Self {
+            listeners: HashMap::new(),
+        }
+    }
+
+    pub fn on(&mut self, event: Event, cb: NewListener) {
+        match self.listeners.get(&event) {
+            Some(lstnrs) => {
+                let mut temp = vec![];
+
+                temp.extend_from_slice(&lstnrs[..]);
+                temp.push(cb);
+
+                self.listeners.insert(event, temp);
+            }
+            None => {
+                self.listeners.insert(event, vec![cb]);
+            }
+        };
+    }
+
+    pub fn emit(&self, cfg: EventConfig) {
+        let event = cfg.get_event();
+
+        if let Some(lstnrs) = self.listeners.get(&event) {
+            for cb in lstnrs {
+                cb(cfg);
+            }
+
+            std::process::exit(cfg.get_exit_code() as i32);
+        }
+    }
+}
+
+impl Default for NewEventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// A simple type to be used to pass callbacks to the .action() method on a command.
 type Listener = fn(&Program, String) -> ();
@@ -13,8 +96,10 @@ pub struct EventEmitter {
     listeners: HashMap<Event, Vec<Listener>>,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
+    EmptyArguments,
+
     /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
     MissingArgument,
@@ -49,31 +134,7 @@ impl EventEmitter {
 
     /// Receives an event and the actual listener to be set then matches on the listener and adds to the listener to its desired vector.
     pub fn on(&mut self, event: Event, callback: Listener) {
-        use Event::*;
-
-        match event {
-            MissingArgument => {
-                self.add_listener(MissingArgument, callback);
-            }
-            OptionMissingArgument => {
-                self.add_listener(OptionMissingArgument, callback);
-            }
-            UnknownCommand => {
-                self.add_listener(UnknownCommand, callback);
-            }
-            UnknownOption => {
-                self.add_listener(UnknownOption, callback);
-            }
-            OutputHelp => {
-                self.add_listener(OutputHelp, callback);
-            }
-            OutputCommandHelp => {
-                self.add_listener(OutputCommandHelp, callback);
-            }
-            OutputVersion => {
-                self.add_listener(OutputVersion, callback);
-            }
-        }
+        self._add_listener(event, callback);
     }
 
     /// This method is called when events in the program occur. It simply checks for any listeners and then executes them in a sequential manner.
@@ -88,7 +149,7 @@ impl EventEmitter {
     }
 
     /// This method retrives the vector of existing callbacks if any and pushes the new listener to the vector
-    fn add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
+    fn _add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
         let existing = self.listeners.get(&event);
 
         match existing {

@@ -17,4 +17,6 @@ fn main() {
         .option("-a --all", "Run all the configured tests")
         .option("-q --quiet", "Don't show tests output")
         .build(&mut program);
+
+    // program.parse();
 }

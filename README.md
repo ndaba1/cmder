@@ -6,7 +6,7 @@
 <img alt="Crates.io" src="https://img.shields.io/crates/v/cmder">
 </p>
 
-This crate is fairly similar to the javascript package `commander-js`. To get started, create an instance of the program struct and use it to add commands. The following is an example:
+This crate aims to provide an easy-to-use and extensible API to build command-line programs with no sacrifice in performance. The syntax of the builder interface can be attributed to the javascript package `commander-js`
 
 ```rust
 

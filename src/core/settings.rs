@@ -14,6 +14,10 @@ pub enum Settings {
     EnableCommandSuggestion,
     HideCommandAliases,
     MaxSubcommandLevel,
+    SetProgramPattern,
+    SetProgramTheme,
+    ConfigureCustomTheme,
+    SeparateOptionsAndFlags,
 }
 
 impl ProgramSettings {
