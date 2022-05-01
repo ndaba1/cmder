@@ -36,6 +36,8 @@ impl Program {
             callback: None,
             metadata: Some(CmdMetadata::default()),
             parent: None,
+            cmd_path: "",
+            more_info: "",
         }
     }
 }
@@ -49,9 +51,11 @@ pub struct Command<'p> {
     options: Vec<NewOption<'p>>,
     description: &'p str,
     parent: Option<&'p Command<'p>>,
-    subcommands: Vec<&'p Command<'p>>,
+    subcommands: Vec<Command<'p>>,
     callback: Option<fn() -> ()>,
     metadata: Option<CmdMetadata<'p>>,
+    cmd_path: &'p str,
+    more_info: &'p str,
 }
 
 #[derive(Clone)]
@@ -96,6 +100,8 @@ impl<'p> Command<'p> {
             callback: None,
             metadata: None,
             parent: None,
+            cmd_path: "",
+            more_info: "",
         }
     }
 
@@ -170,7 +176,7 @@ impl<'p> Command<'p> {
         &self.arguments
     }
 
-    pub fn get_subcommands(&self) -> &Vec<&Self> {
+    pub fn get_subcommands(&self) -> &Vec<Self> {
         &self.subcommands
     }
 
@@ -178,7 +184,7 @@ impl<'p> Command<'p> {
         self.parent
     }
 
-    pub fn find_subcommand(&self, val: &str) -> Option<&&Command<'_>> {
+    pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
         self.subcommands
             .iter()
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
@@ -210,19 +216,24 @@ impl<'p> Command<'p> {
         }
     }
 
-    fn _add_sub_cmd(&mut self, sub_cmd: &'p Self) {
+    fn _add_sub_cmd(&mut self, sub_cmd: Self) {
         self.subcommands.push(sub_cmd);
     }
 
-    fn _add_parent(&mut self, parent_cmd: &'p Self) -> &'p Self {
+    fn _add_parent(mut self, parent_cmd: &'p Self) -> Self {
         self.parent = Some(parent_cmd);
-        parent_cmd
+        self
     }
 
-    pub fn build(&'p mut self, parent_cmd: &'p mut Self) -> &Self {
+    pub fn build(&self, parent_cmd: &'p mut Self) {
         // TODO: Find a way to achieve this without using the build method
-        parent_cmd._add_sub_cmd(self);
-        self
+        parent_cmd._add_sub_cmd(self.clone());
+        // match &mut self.parent {
+        //     Some(p) => {
+        //         p._add_sub_cmd(self.clone());
+        //     }
+        //     None => {}
+        // }
     }
 
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
@@ -235,7 +246,7 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn subcommand(&mut self, name: &'p str) -> Self {
+    pub fn subcommand(&self, name: &'p str) -> Self {
         Self::new(name)
     }
 
@@ -326,13 +337,13 @@ impl<'p> Command<'p> {
         config
     }
 
-    pub fn parse(&self) {}
+    pub fn parse(&mut self) {}
 
-    pub fn parse_from(&self, list: Vec<&str>) {}
+    pub fn parse_from(&mut self, list: Vec<&str>) {}
 
-    pub fn get_matches(&self) {}
+    pub fn get_matches(&mut self) {}
 
-    pub fn get_matches_from(&self, list: Vec<&str>) {}
+    pub fn get_matches_from(&mut self, list: Vec<&str>) {}
 
     // Others
     pub fn output_help(&self) {}
