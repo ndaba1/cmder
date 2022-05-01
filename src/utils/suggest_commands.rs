@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::parser::Cmd;
+use crate::parse::Cmd;
 
 const MIN_MATCH_SIZE: i32 = 3;
 

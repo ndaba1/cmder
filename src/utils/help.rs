@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{parser::Cmd, Designation, Event, Formatter, FormatterRules, Program};
+use crate::{parse::Cmd, Designation, Event, Formatter, FormatterRules, Program};
 
 pub fn print_help(program: &Program, cmd: Option<&Cmd>, error: &str) {
     let mut fmtr = Formatter::new(program.get_theme().to_owned());
