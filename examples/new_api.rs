@@ -18,5 +18,5 @@ fn main() {
         .option("-q --quiet", "Don't show tests output")
         .build(&mut program);
 
-    program.parse();
+    // program.parse();
 }
