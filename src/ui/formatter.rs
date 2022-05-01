@@ -2,7 +2,7 @@ use std::io::Write;
 use termcolor::{Buffer, BufferWriter, ColorChoice, ColorSpec, WriteColor};
 
 use crate::{
-    parser::{Argument, Cmd, Flag},
+    parse::{Argument, Cmd, Flag},
     Theme,
 };
 
