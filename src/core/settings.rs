@@ -17,6 +17,7 @@ pub enum Settings {
     SetProgramPattern,
     SetProgramTheme,
     ConfigureCustomTheme,
+    SeparateOptionsAndFlags,
 }
 
 impl ProgramSettings {
