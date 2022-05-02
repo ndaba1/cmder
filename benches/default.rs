@@ -37,7 +37,7 @@ pub fn build_new(c: &mut Criterion) {
                 .subcommand("empty")
                 .option("-x --extra", "Something extra")
                 .option("-x --extra", "Something extra")
-                .build(&mut program);
+                .build(program.s());
         })
     });
 }
