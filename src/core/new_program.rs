@@ -1,21 +1,24 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     parse::{
-        matches::{FlagsConfig, ParserMatches},
+        matches::{FlagsMatches, ParserMatches},
+        parser::NewParser,
         resolve_flag, Argument, Flag,
     },
     Event, Pattern, Theme,
 };
 
 use super::{
-    super::parse::flags::{resolve_arg, NewFlag, NewOption},
+    super::parse::flags::{NewFlag, NewOption},
     events::{EventConfig, NewEventEmitter},
 };
 use super::{events::NewListener, ProgramSettings};
+
+type Callback = fn(ParserMatches) -> ();
 
 pub struct Program {}
 
@@ -52,13 +55,13 @@ pub struct Command<'p> {
     description: &'p str,
     parent: Option<&'p Command<'p>>,
     subcommands: Vec<Command<'p>>,
-    callback: Option<fn() -> ()>,
+    callback: Option<Callback>,
     metadata: Option<CmdMetadata<'p>>,
     cmd_path: &'p str,
     more_info: &'p str,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CmdMetadata<'a> {
     version: &'a str,
     author: &'a str,
@@ -84,6 +87,22 @@ impl<'c> CmdMetadata<'c> {
 impl<'d> Default for CmdMetadata<'d> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<'d> Debug for Command<'d> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "
+                {},
+                {},
+                {:#?},
+                {:#?},
+                {:#?},
+                {:#?},
+            ",
+            self.name, self.description, self.arguments, self.flags, self.options, self.subcommands
+        ))
     }
 }
 
@@ -180,6 +199,10 @@ impl<'p> Command<'p> {
         &self.subcommands
     }
 
+    pub fn s(&mut self) -> &mut Vec<Self> {
+        &mut self.subcommands
+    }
+
     pub fn get_parent(&self) -> Option<&Self> {
         self.parent
     }
@@ -225,15 +248,10 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn build(&self, parent_cmd: &'p mut Self) {
+    pub fn build(&self, cmd_vec: &mut Vec<Self>) {
         // TODO: Find a way to achieve this without using the build method
-        parent_cmd._add_sub_cmd(self.clone());
-        // match &mut self.parent {
-        //     Some(p) => {
-        //         p._add_sub_cmd(self.clone());
-        //     }
-        //     None => {}
-        // }
+        // FIXME: No clones
+        cmd_vec.push(self.clone());
     }
 
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
@@ -257,6 +275,11 @@ impl<'p> Command<'p> {
             self.arguments.push(arg);
         }
 
+        self
+    }
+
+    pub fn action(&mut self, cb: Callback) -> &mut Self {
+        self.callback = Some(cb);
         self
     }
 
@@ -305,39 +328,23 @@ impl<'p> Command<'p> {
                 .is_some()
     }
 
-    fn _parse(
-        &'p self,
-        raw_args: &'p [&'p str],
-        root_cfg: Option<ParserMatches<'p>>,
-    ) -> ParserMatches<'p> {
-        if raw_args.is_empty() {
-            // handle empty args
+    pub fn parse(&'p mut self) {
+        let raw_args: Vec<_> = std::env::args().collect();
+        let mut cleaned_args = vec![];
+
+        for a in &raw_args {
+            cleaned_args.push(a.as_str());
         }
 
-        let mut config = if let Some(cfg) = root_cfg {
-            cfg
-        } else {
-            ParserMatches::new(raw_args.len())
-        };
+        // self.name = self._get_target_name(raw_args[0]).as_str();
 
-        // ["image", "ls", "-p", "80"]
-        for (idx, arg) in raw_args.iter().enumerate() {
-            if let Some(flag) = resolve_arg(&NewFlag::default(), self.get_flags(), arg) {
-                // handle flags input
-            } else if let Some(opt) = resolve_arg(&NewOption::default(), self.get_options(), arg) {
-                //handle opts input
-            } else if let Some(sub_cmd) = self.find_subcommand(arg) {
-                // it is a subcommand/command
-                return sub_cmd._parse(&raw_args[1..], Some(config));
-            } else {
-                // it is either an argument or unknown
+        match NewParser::parse(self, &cleaned_args[1..], None) {
+            Ok(res) => {
+                dbg!(res);
             }
+            _ => {}
         }
-
-        config
     }
-
-    pub fn parse(&mut self) {}
 
     pub fn parse_from(&mut self, list: Vec<&str>) {}
 
@@ -347,4 +354,12 @@ impl<'p> Command<'p> {
 
     // Others
     pub fn output_help(&self) {}
+
+    pub fn before_all(&self) {}
+
+    pub fn before_help(&self) {}
+
+    pub fn after_all(&self) {}
+
+    pub fn after_help(&self) {}
 }
