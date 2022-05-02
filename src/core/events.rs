@@ -1,5 +1,5 @@
 #![allow(unused)]
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use super::{new_program::Command, Program};
 
@@ -41,6 +41,12 @@ pub type NewListener = fn(EventConfig) -> ();
 #[derive(Clone)]
 pub struct NewEventEmitter {
     listeners: HashMap<Event, Vec<NewListener>>,
+}
+
+impl Debug for NewEventEmitter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(""))
+    }
 }
 
 impl NewEventEmitter {
