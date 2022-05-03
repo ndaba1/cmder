@@ -1,8 +1,14 @@
+#![allow(unused)]
+
 use std::collections::HashMap;
 
+use crate::core::errors::CmderError;
+use crate::core::new_program::Command;
 use crate::Event;
 
 use super::super::Program;
+use super::flags::{resolve_new_flag, resolve_new_option, NewFlag, NewOption};
+use super::matches::{ArgsMatches, CommandMatches, FlagsMatches, OptionsMatches, ParserMatches};
 use super::{resolve_flag, Argument, Cmd};
 
 pub struct Parser<'a> {
@@ -168,5 +174,117 @@ impl<'a> Parser<'a> {
         }
 
         (values, options)
+    }
+}
+
+pub struct NewParser {}
+
+impl NewParser {
+    pub fn parse<'a>(
+        root: &'a Command<'a>,
+        raw_args: &'a [&'a str],
+        root_cfg: Option<ParserMatches<'a>>,
+    ) -> Result<ParserMatches<'a>, CmderError<'a>> {
+        // Check if args empty
+        if raw_args.is_empty() {
+            // handle empty args
+        }
+
+        let mut config = if let Some(cfg) = root_cfg {
+            cfg
+        } else {
+            ParserMatches::new(raw_args.len())
+        };
+
+        // ["image", "ls", "-p", "80", "--", "-xc", "-pv"]
+        for (idx, arg) in raw_args.iter().enumerate() {
+            if let Some(flag) = resolve_new_flag(root.get_flags(), arg) {
+                // handle flags input
+                let count = config.get_flag_count(flag.long_version);
+
+                let cfg = FlagsMatches {
+                    appearance_count: (count + 1) as usize,
+                    cursor_index: idx,
+                    flag,
+                };
+
+                if !config.contains_flag(cfg.flag.long_version) {
+                    config.flags.push(cfg);
+                }
+            } else if let Some(opt) = resolve_new_option(root.get_options(), arg) {
+                //handle opts input
+                let max_args_len = opt.arguments.len();
+                let cleaned_name = opt.long_version.replace("--", "").replace("-", "_");
+                let count = config.get_option_count(opt.long_version) as usize;
+
+                let mut cfg = if config.contains_option(opt.long_version) {
+                    config
+                        .options
+                        .iter()
+                        .find(|c| c.option.long_version == opt.long_version)
+                        .unwrap()
+                        .to_owned()
+                } else {
+                    OptionsMatches {
+                        cursor_index: idx,
+                        appearance_count: count + 1,
+                        option: opt.clone(),
+                        args: vec![],
+                    }
+                };
+
+                let opt = opt.clone();
+                for (arg_idx, arg) in opt.arguments.iter().enumerate() {
+                    let step = arg_idx + 1;
+                    let mut raw_value = String::new();
+
+                    if arg.variadic {
+                        for (index, a) in raw_args.iter().enumerate() {
+                            if index >= idx && !a.starts_with('-') {
+                                raw_value.push_str(a);
+                                raw_value.push(' ')
+                            }
+                        }
+                    } else if arg_idx <= max_args_len {
+                        // try to any args input values
+                        match raw_args.get(idx + step) {
+                            Some(v) => {
+                                raw_value.push_str(v);
+                            }
+                            None => {
+                                if arg.required {
+                                    let mut vals = vec![];
+                                    // vals.push(arg.literal.as_str());
+                                    vals.push(raw_args[idx]);
+
+                                    return Err(CmderError::MissingArgument(vals));
+                                }
+                            }
+                        }
+                    }
+
+                    let temp_cfg = ArgsMatches {
+                        cursor_index: idx,
+                        instance_of: arg.literal.clone(),
+                        raw_value,
+                    };
+
+                    cfg.args.push(temp_cfg);
+                }
+
+                config.options.push(cfg);
+            } else if let Some(sub_cmd) = root.find_subcommand(arg) {
+                // it is a subcommand/command
+                return NewParser::parse(sub_cmd, &raw_args[1..], Some(config));
+            } else if *arg == "--" {
+                // register positional_options and break loop
+                config.positional_options = &raw_args[(idx + 1)..];
+                break;
+            } else {
+                // it is either an argument or unknown
+            }
+        }
+
+        Ok(config)
     }
 }
