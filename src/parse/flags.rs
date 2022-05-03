@@ -2,12 +2,6 @@
 
 use super::args::Argument;
 
-pub(crate) trait Resolution<'a> {
-    fn resolve(&self, list: &'a [Self], val: &'a str) -> Option<&Self>
-    where
-        Self: Sized;
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewOption<'op> {
     pub short_version: &'op str,
@@ -16,7 +10,7 @@ pub struct NewOption<'op> {
     pub description: &'op str,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewFlag<'f> {
     pub short_version: &'f str,
     pub long_version: &'f str,
@@ -30,13 +24,6 @@ impl<'a> NewFlag<'a> {
             long_version: long,
             description: desc,
         }
-    }
-}
-
-impl<'a> Resolution<'a> for NewFlag<'a> {
-    fn resolve(&self, list: &'a [Self], val: &'a str) -> Option<&Self> {
-        list.iter()
-            .find(|f| f.short_version == val || f.long_version == val)
     }
 }
 
@@ -59,13 +46,6 @@ impl<'b> NewOption<'b> {
             description: desc,
             arguments,
         }
-    }
-}
-
-impl<'b> Resolution<'b> for NewOption<'b> {
-    fn resolve(&self, list: &'b [Self], val: &'b str) -> Option<&Self> {
-        list.iter()
-            .find(|f| f.short_version == val || f.long_version == val)
     }
 }
 
@@ -176,9 +156,24 @@ pub fn resolve_flag(list: &[Flag], val: &str) -> Option<Flag> {
     flag
 }
 
-pub(crate) fn resolve_arg<'a, T>(arg: &'a T, list: &'a Vec<T>, val: &'a str) -> Option<&'a T>
-where
-    T: Resolution<'a>,
-{
-    arg.resolve(list, val)
+pub(crate) fn resolve_new_flag<'f>(list: &'f [NewFlag], val: &'f str) -> Option<NewFlag<'f>> {
+    let mut flag = None;
+
+    for f in list {
+        if f.short_version == val || f.long_version == val {
+            flag = Some(f.clone());
+        }
+    }
+    flag
+}
+
+pub(crate) fn resolve_new_option<'o>(list: &'o [NewOption], val: &'o str) -> Option<NewOption<'o>> {
+    let mut flag = None;
+
+    for f in list {
+        if f.short_version == val || f.long_version == val {
+            flag = Some(f.clone());
+        }
+    }
+    flag
 }
