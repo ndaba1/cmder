@@ -8,9 +8,3 @@ pub enum CmderError<'err> {
     UnknownCommand(&'err str),
     UnknownOption(&'err str),
 }
-
-// impl<'a> fmt::Display for CmderError<'a>  {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-
-//     }
-// }
