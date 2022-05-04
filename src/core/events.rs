@@ -45,7 +45,7 @@ pub struct NewEventEmitter {
 
 impl Debug for NewEventEmitter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(""))
+        f.write_fmt(format_args!("{:#?}", self.listeners.keys()))
     }
 }
 
