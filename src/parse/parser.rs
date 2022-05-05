@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::core::errors::CmderError;
 use crate::core::new_program::Command;
+use crate::core::EventConfig;
 use crate::Event;
 
 use super::super::Program;
@@ -188,83 +189,73 @@ impl NewParser {
         // Check if args empty
         if raw_args.is_empty() {
             // handle empty args
+            // return Ok(ParserMatches::new(0, root));
         }
 
         let mut config = if let Some(cfg) = root_cfg {
             cfg
         } else {
-            ParserMatches::new(raw_args.len())
+            ParserMatches::new(raw_args.len(), root)
         };
 
         // ["image", "ls", "-p", "80", "--", "-xc", "-pv"]
-        for (idx, arg) in raw_args.iter().enumerate() {
+        for (cursor_idx, arg) in raw_args.iter().enumerate() {
             if let Some(flag) = resolve_new_flag(root.get_flags(), arg) {
                 // handle flags input
                 let count = config.get_flag_count(flag.long_version);
 
                 let cfg = FlagsMatches {
                     appearance_count: (count + 1) as usize,
-                    cursor_index: idx,
+                    cursor_index: cursor_idx + config.cursor_offset,
                     flag,
                 };
 
                 if !config.contains_flag(cfg.flag.long_version) {
-                    config.flags.push(cfg);
+                    config.flag_matches.push(cfg);
                 }
             } else if let Some(opt) = resolve_new_option(root.get_options(), arg) {
                 //handle opts input
                 let max_args_len = opt.arguments.len();
-                let cleaned_name = opt.long_version.replace("--", "").replace("-", "_");
+                let cleaned_name = opt.long_version.replace("--", "").replace('-', "_");
                 let count = config.get_option_count(opt.long_version) as usize;
 
-                let mut cfg = if config.contains_option(opt.long_version) {
-                    config
-                        .options
-                        .iter()
-                        .find(|c| c.option.long_version == opt.long_version)
-                        .unwrap()
-                        .to_owned()
-                } else {
-                    OptionsMatches {
-                        cursor_index: idx,
-                        appearance_count: count + 1,
-                        option: opt.clone(),
-                        args: vec![],
-                    }
+                let mut cfg = OptionsMatches {
+                    cursor_index: cursor_idx + config.cursor_offset,
+                    appearance_count: count + 1,
+                    option: opt.clone(),
+                    args: vec![],
                 };
 
-                let opt = opt.clone();
-                for (arg_idx, arg) in opt.arguments.iter().enumerate() {
+                for (arg_idx, arg) in opt.arguments.into_iter().enumerate() {
                     let step = arg_idx + 1;
                     let mut raw_value = String::new();
 
                     if arg.variadic {
                         for (index, a) in raw_args.iter().enumerate() {
-                            if index >= idx && !a.starts_with('-') {
+                            if index >= cursor_idx && !a.starts_with('-') {
                                 raw_value.push_str(a);
                                 raw_value.push(' ')
                             }
                         }
                     } else if arg_idx <= max_args_len {
                         // try to any args input values
-                        match raw_args.get(idx + step) {
+                        match raw_args.get(cursor_idx + step) {
                             Some(v) => {
                                 raw_value.push_str(v);
                             }
                             None => {
                                 if arg.required {
-                                    let mut vals = vec![];
-                                    // vals.push(arg.literal.as_str());
-                                    vals.push(raw_args[idx]);
+                                    let mut vals =
+                                        vec![arg.literal, raw_args[cursor_idx].to_string()];
 
-                                    return Err(CmderError::MissingArgument(vals));
+                                    return Err(CmderError::OptionMissingArgument(vals));
                                 }
                             }
                         }
                     }
 
                     let temp_cfg = ArgsMatches {
-                        cursor_index: idx,
+                        cursor_index: (cursor_idx + 1) + config.cursor_offset,
                         instance_of: arg.literal.clone(),
                         raw_value,
                     };
@@ -272,16 +263,73 @@ impl NewParser {
                     cfg.args.push(temp_cfg);
                 }
 
-                config.options.push(cfg);
+                config.option_matches.push(cfg);
             } else if let Some(sub_cmd) = root.find_subcommand(arg) {
                 // it is a subcommand/command
+                let arguments = sub_cmd.get_arguments();
+                let max_args_len = arguments.len();
+
+                for (arg_idx, arg) in sub_cmd.get_arguments().iter().enumerate() {
+                    let step = arg_idx + 1;
+                    let mut raw_value = String::new();
+
+                    if arg.variadic {
+                        for (index, a) in raw_args.iter().enumerate() {
+                            if index >= cursor_idx && !a.starts_with('-') {
+                                raw_value.push_str(a);
+                                raw_value.push(' ')
+                            }
+                        }
+                    } else if arg_idx <= max_args_len {
+                        // try to any args input values
+                        match raw_args.get(cursor_idx + step) {
+                            Some(v) => {
+                                if v.starts_with('-') {
+                                    let mut vals = vec![arg.literal.clone()];
+                                    return Err(CmderError::MissingArgument(vals));
+                                } else {
+                                    raw_value.push_str(v);
+                                }
+                            }
+                            None => {
+                                if arg.required {
+                                    let mut vals = vec![arg.literal.clone()];
+                                    return Err(CmderError::MissingArgument(vals));
+                                }
+                            }
+                        }
+                    }
+
+                    let temp_cfg = ArgsMatches {
+                        cursor_index: (cursor_idx + 1) + config.cursor_offset,
+                        instance_of: arg.literal.clone(),
+                        raw_value,
+                    };
+
+                    config.arg_matches.push(temp_cfg);
+                }
+
+                config.cursor_offset += 1;
+                config.matched_subcmd = Some(sub_cmd);
+
                 return NewParser::parse(sub_cmd, &raw_args[1..], Some(config));
             } else if *arg == "--" {
                 // register positional_options and break loop
-                config.positional_options = &raw_args[(idx + 1)..];
+                config.positional_options = &raw_args[(cursor_idx + 1)..];
                 break;
             } else {
                 // it is either an argument or unknown
+                let max_len = root.get_arguments().len();
+
+                if max_len > 0 && cursor_idx <= max_len && !arg.starts_with('-') {
+                    continue;
+                }
+
+                if arg.starts_with("-") && *arg != "--" {
+                    return Err(CmderError::UnknownOption(arg));
+                }
+
+                return Err(CmderError::UnknownCommand(arg));
             }
         }
 
