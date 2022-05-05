@@ -3,28 +3,29 @@ use std::{collections::HashMap, fmt::Debug};
 
 use super::{new_program::Command, Program};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct EventConfig<'e> {
-    args: &'e [&'e str],
+    args: Vec<&'e str>,
     arg_count: usize,
     exit_code: usize,
     event_type: Event,
     matched_cmd: Option<&'e Command<'e>>,
     additional_info: &'e str,
-    program_ref: &'e Command<'static>,
+    program_ref: Command<'e>,
 }
 
 impl<'a> EventConfig<'a> {
+    // Getters
     pub fn get_args(&self) -> Vec<&str> {
-        self.args.to_vec()
+        self.args.clone()
     }
 
     pub fn get_event(&self) -> Event {
         self.event_type
     }
 
-    pub fn get_program(&self) -> &Command<'static> {
-        self.program_ref
+    pub fn get_program(&self) -> &Command<'a> {
+        &self.program_ref
     }
 
     pub fn get_exit_code(&self) -> usize {
@@ -33,6 +34,56 @@ impl<'a> EventConfig<'a> {
 
     pub fn get_matched_cmd(&self) -> Option<&Command<'a>> {
         self.matched_cmd
+    }
+
+    // Setters
+    pub fn args(mut self, args: Vec<&'a str>) -> Self {
+        self.args = args;
+        self
+    }
+
+    pub fn arg_c(mut self, count: usize) -> Self {
+        self.arg_count = count;
+        self
+    }
+
+    pub fn exit_code(mut self, code: usize) -> Self {
+        self.exit_code = code;
+        self
+    }
+
+    pub fn set_event(mut self, event: Event) -> Self {
+        self.event_type = event;
+        self
+    }
+
+    pub fn set_matched_cmd(mut self, cmd: &'a Command<'a>) -> Self {
+        self.matched_cmd = Some(cmd);
+        self
+    }
+
+    pub fn info(mut self, info: &'a str) -> Self {
+        self.additional_info = info;
+        self
+    }
+
+    pub fn program(mut self, p_ref: Command<'a>) -> Self {
+        self.program_ref = p_ref;
+        self
+    }
+}
+
+impl<'d> Default for EventConfig<'d> {
+    fn default() -> Self {
+        Self {
+            additional_info: "",
+            arg_count: 0,
+            args: vec![],
+            event_type: Event::OutputHelp,
+            exit_code: 0,
+            matched_cmd: None,
+            program_ref: Command::new("none"),
+        }
     }
 }
 
@@ -77,7 +128,7 @@ impl NewEventEmitter {
 
         if let Some(lstnrs) = self.listeners.get(&event) {
             for cb in lstnrs {
-                cb(cfg);
+                cb(cfg.clone());
             }
 
             std::process::exit(cfg.get_exit_code() as i32);
