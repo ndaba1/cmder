@@ -7,10 +7,12 @@ use super::flags::{NewFlag, NewOption};
 #[derive(Debug, Clone)]
 pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
+    pub(crate) cursor_offset: usize,
+    pub(crate) root_cmd: &'pm Command<'pm>,
     pub(crate) matched_subcmd: Option<CommandMatches<'pm>>,
-    pub(crate) flags: Vec<FlagsMatches<'pm>>,
-    pub(crate) options: Vec<OptionsMatches<'pm>>,
-    pub(crate) args: ArgsMatches,
+    pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
+    pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
+    pub(crate) arg_matches: Vec<ArgsMatches>,
     pub(crate) positional_options: &'pm [&'pm str],
 }
 
