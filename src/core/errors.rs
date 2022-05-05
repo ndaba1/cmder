@@ -22,6 +22,12 @@ impl<'a> fmt::Display for CmderError<'a> {
                 "Missing required argument(s): {} for option: {}",
                 args[0], args[1]
             )),
+            CmderError::UnknownOption(ref opt) => {
+                f.write_fmt(format_args!("You have passed an unknown option: {opt}"))
+            }
+            CmderError::UnknownCommand(ref cmd) => {
+                f.write_fmt(format_args!("Could not find command: {cmd}"))
+            }
             _ => f.write_str("An error occurred"),
         }
     }
