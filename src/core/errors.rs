@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+#[derive(Debug, Clone)]
 pub enum CmderError<'err> {
     MissingArgument(Vec<String>),
     OptionMissingArgument(Vec<String>),
