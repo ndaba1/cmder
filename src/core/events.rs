@@ -5,7 +5,7 @@ use super::{new_program::Command, Program};
 
 #[derive(Clone)]
 pub struct EventConfig<'e> {
-    args: Vec<&'e str>,
+    args: Vec<String>,
     arg_count: usize,
     exit_code: usize,
     event_type: Event,
@@ -16,7 +16,7 @@ pub struct EventConfig<'e> {
 
 impl<'a> EventConfig<'a> {
     // Getters
-    pub fn get_args(&self) -> Vec<&str> {
+    pub fn get_args(&self) -> Vec<String> {
         self.args.clone()
     }
 
@@ -37,7 +37,7 @@ impl<'a> EventConfig<'a> {
     }
 
     // Setters
-    pub fn args(mut self, args: Vec<&'a str>) -> Self {
+    pub fn args(mut self, args: Vec<String>) -> Self {
         self.args = args;
         self
     }
