@@ -79,45 +79,55 @@ impl<'args> ArgsMatches {
 }
 
 impl<'a> ParserMatches<'a> {
-    pub(crate) fn new(count: usize) -> Self {
+    pub(crate) fn new(count: usize, root_cmd: &'a Command<'a>) -> Self {
         Self {
             arg_count: count,
-            flags: vec![],
+            cursor_offset: 0,
+            flag_matches: vec![],
+            root_cmd,
             matched_subcmd: None,
-            args: ArgsMatches::new(),
-            options: vec![OptionsMatches::default()],
+            arg_matches: vec![],
+            option_matches: vec![],
             positional_options: &[],
         }
+    }
+
+    pub fn get_program(&self) -> &'a Command<'a> {
+        self.root_cmd
     }
 
     pub fn get_arg_count(&self) -> usize {
         self.arg_count
     }
 
-    pub fn contains_flag(&self, val: &str) -> bool {
-        match self.flags.iter().find(|f| {
+    pub fn get_flag(&self, val: &str) -> Option<NewFlag> {
+        match self.flag_matches.iter().find(|f| {
             let flag = &f.flag;
             flag.short_version == val || flag.long_version == val
         }) {
-            Some(_f) => true,
-            _ => false,
+            Some(fm) => Some(fm.flag.clone()),
+            None => None,
         }
     }
 
+    pub fn contains_flag(&self, val: &str) -> bool {
+        self.flag_matches.iter().any(|f| {
+            let flag = &f.flag;
+            flag.short_version == val || flag.long_version == val
+        })
+    }
+
     pub fn contains_option(&self, val: &str) -> bool {
-        match self.options.iter().find(|o| {
+        self.option_matches.iter().any(|o| {
             let op = &o.option;
             op.short_version == val || op.long_version == val
-        }) {
-            Some(_o) => true,
-            _ => false,
-        }
+        })
     }
 
     pub fn get_flag_count(&self, val: &str) -> i32 {
         let mut count = 0;
 
-        for fc in &self.flags {
+        for fc in &self.flag_matches {
             let flag = &fc.flag;
 
             if flag.short_version == val || flag.long_version == val {
@@ -131,7 +141,7 @@ impl<'a> ParserMatches<'a> {
     pub fn get_option_count(&self, val: &str) -> i32 {
         let mut count = 0;
 
-        for fc in &self.options {
+        for fc in &self.option_matches {
             let flag = &fc.option;
 
             if flag.short_version == val || flag.long_version == val {
@@ -145,7 +155,7 @@ impl<'a> ParserMatches<'a> {
     pub(crate) fn get_option_config(&self, val: &str) -> Option<OptionsMatches> {
         let mut cfg = None;
 
-        for opc in &self.options {
+        for opc in &self.option_matches {
             let op = &opc.option;
 
             if op.short_version == val || op.long_version == val {
