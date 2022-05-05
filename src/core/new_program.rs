@@ -318,6 +318,30 @@ impl<'p> Command<'p> {
                 .is_some()
     }
 
+    fn _handle_flags(&mut self, matches: &ParserMatches) {
+        let program = matches.get_program();
+
+        if let Some(_f) = matches.get_flag("-h") {
+            let cfg = EventConfig::default().program(program.clone());
+
+            self.output_help();
+            self.emit(cfg);
+            std::process::exit(0);
+        } else if let Some(_f) = matches.get_flag("-v") {
+            let version = program.get_version();
+
+            let cfg = EventConfig::default()
+                .arg_c(1 as usize)
+                .args(vec![version])
+                .set_event(Event::OutputVersion)
+                .program(program.clone());
+
+            self.output_version();
+            self.emit(cfg);
+            std::process::exit(0);
+        }
+    }
+
     pub fn parse(&'p mut self) {
         let raw_args: Vec<_> = std::env::args().collect();
         let mut cleaned_args = vec![];
@@ -346,6 +370,8 @@ impl<'p> Command<'p> {
 
     // Others
     pub fn output_help(&self) {}
+
+    pub fn output_version(&self) {}
 
     pub fn before_all(&self) {}
 
