@@ -11,14 +11,14 @@ pub enum CmderError<'err> {
 
 impl<'a> fmt::Display for CmderError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            &CmderError::MissingArgument(ref args) => {
+        match *self {
+            CmderError::MissingArgument(ref args) => {
                 let arg_string = get_vector_string(args);
                 f.write_fmt(format_args!(
                     "Missing the following required argument(s): {arg_string}"
                 ))
             }
-            &CmderError::OptionMissingArgument(ref args) => f.write_fmt(format_args!(
+            CmderError::OptionMissingArgument(ref args) => f.write_fmt(format_args!(
                 "Missing required argument(s): {} for option: {}",
                 args[0], args[1]
             )),

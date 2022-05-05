@@ -203,7 +203,7 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
     }
 
-    fn _get_target_name(&self, val: &String) -> String {
+    fn _get_target_name(&self, val: &str) -> String {
         if self.name.is_empty() {
             if cfg!(windows) {
                 let path_buff: Vec<&str> = val.split('\\').collect();
@@ -331,7 +331,7 @@ impl<'p> Command<'p> {
             let version = program.get_version();
 
             let cfg = EventConfig::default()
-                .arg_c(1 as usize)
+                .arg_c(1_usize)
                 .args(vec![version])
                 .set_event(Event::OutputVersion)
                 .program(program.clone());

@@ -23,7 +23,7 @@ pub(crate) struct FlagsMatches<'a> {
     pub(crate) appearance_count: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct OptionsMatches<'o> {
     pub(crate) cursor_index: usize,
     pub(crate) option: NewOption<'o>,
@@ -33,17 +33,6 @@ pub(crate) struct OptionsMatches<'o> {
 
 impl<'o> OptionsMatches<'o> {
     pub(crate) fn new() -> Self {
-        Self {
-            appearance_count: 0,
-            args: vec![],
-            cursor_index: 0,
-            option: NewOption::default(),
-        }
-    }
-}
-
-impl<'d> Default for OptionsMatches<'d> {
-    fn default() -> Self {
         Self {
             appearance_count: 0,
             args: vec![],
@@ -101,13 +90,13 @@ impl<'a> ParserMatches<'a> {
     }
 
     pub fn get_flag(&self, val: &str) -> Option<NewFlag> {
-        match self.flag_matches.iter().find(|f| {
-            let flag = &f.flag;
-            flag.short_version == val || flag.long_version == val
-        }) {
-            Some(fm) => Some(fm.flag.clone()),
-            None => None,
-        }
+        self.flag_matches
+            .iter()
+            .find(|f| {
+                let flag = &f.flag;
+                flag.short_version == val || flag.long_version == val
+            })
+            .map(|fm| fm.flag.clone())
     }
 
     pub fn contains_flag(&self, val: &str) -> bool {
