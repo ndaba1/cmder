@@ -13,6 +13,6 @@ pub mod new_program;
 
 pub mod errors;
 
-pub use events::{Event, EventEmitter};
+pub use events::{Event, EventConfig, EventEmitter};
 pub use program::Program;
 pub use settings::ProgramSettings;
