@@ -9,7 +9,7 @@ pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
     pub(crate) cursor_offset: usize,
     pub(crate) root_cmd: &'pm Command<'pm>,
-    pub(crate) matched_subcmd: Option<CommandMatches<'pm>>,
+    pub(crate) matched_subcmd: Option<&'pm Command<'pm>>,
     pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
     pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
     pub(crate) arg_matches: Vec<ArgsMatches>,
@@ -23,7 +23,7 @@ pub(crate) struct FlagsMatches<'a> {
     pub(crate) appearance_count: usize,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct OptionsMatches<'o> {
     pub(crate) cursor_index: usize,
     pub(crate) option: NewOption<'o>,
@@ -50,7 +50,7 @@ pub(crate) struct CommandMatches<'b> {
     pub(crate) flags: Vec<FlagsMatches<'b>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ArgsMatches {
     pub(crate) cursor_index: usize,
     pub(crate) raw_value: String,
@@ -85,6 +85,10 @@ impl<'a> ParserMatches<'a> {
         self.root_cmd
     }
 
+    pub fn get_matched_cmd(&self) -> Option<&'a Command<'a>> {
+        self.matched_subcmd
+    }
+
     pub fn get_arg_count(&self) -> usize {
         self.arg_count
     }
@@ -97,6 +101,16 @@ impl<'a> ParserMatches<'a> {
                 flag.short_version == val || flag.long_version == val
             })
             .map(|fm| fm.flag.clone())
+    }
+
+    pub fn get_option(&self, val: &str) -> Option<NewOption> {
+        self.option_matches
+            .iter()
+            .find(|opc| {
+                let option = &opc.option;
+                option.long_version == val || option.short_version == val
+            })
+            .map(|opm| opm.option.clone())
     }
 
     pub fn contains_flag(&self, val: &str) -> bool {
@@ -141,14 +155,14 @@ impl<'a> ParserMatches<'a> {
         count
     }
 
-    pub(crate) fn get_option_config(&self, val: &str) -> Option<OptionsMatches> {
+    pub(crate) fn get_option_config(&self, val: &str) -> Option<&OptionsMatches> {
         let mut cfg = None;
 
         for opc in &self.option_matches {
             let op = &opc.option;
 
             if op.short_version == val || op.long_version == val {
-                cfg = Some(opc.clone());
+                cfg = Some(opc);
             }
         }
 

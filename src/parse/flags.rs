@@ -2,7 +2,7 @@
 
 use super::args::Argument;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewOption<'op> {
     pub short_version: &'op str,
     pub long_version: &'op str,
