@@ -10,14 +10,10 @@ pub struct ProgramSettings {
 
 #[allow(unused)]
 pub enum Settings {
-    ShowHelpOnError,
-    EnableCommandSuggestion,
-    HideCommandAliases,
-    MaxSubcommandLevel,
-    SetProgramPattern,
-    SetProgramTheme,
-    ConfigureCustomTheme,
-    SeparateOptionsAndFlags,
+    ShowHelpOnError(bool),
+    EnableCommandSuggestion(bool),
+    HideCommandAliases(bool),
+    SeparateOptionsAndFlags(bool),
 }
 
 impl ProgramSettings {

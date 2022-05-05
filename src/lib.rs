@@ -275,5 +275,6 @@ mod utils;
 mod ui;
 
 pub use crate::core::{Event, EventEmitter, Program};
+pub use parse::ParserMatches;
 pub use termcolor::Color;
 pub use ui::{Designation, Formatter, FormatterRules, Pattern, PredefinedThemes, Theme};

@@ -1,21 +1,25 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
+    core::errors::CmderError,
     parse::{
-        matches::{FlagsConfig, ParserMatches},
+        matches::{FlagsMatches, ParserMatches},
+        parser::NewParser,
         resolve_flag, Argument, Flag,
     },
-    Event, Pattern, Theme,
+    Event, Pattern, PredefinedThemes, Theme,
 };
 
 use super::{
-    super::parse::flags::{resolve_arg, NewFlag, NewOption},
+    super::parse::flags::{NewFlag, NewOption},
     events::{EventConfig, NewEventEmitter},
 };
 use super::{events::NewListener, ProgramSettings};
+
+type Callback = fn(ParserMatches) -> ();
 
 pub struct Program {}
 
@@ -23,42 +27,33 @@ impl Program {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Command<'static> {
         Command {
-            name: "",
-            alias: None,
-            arguments: vec![],
             flags: vec![
                 NewFlag::new("-h", "--help", "Print out help information"),
                 NewFlag::new("-v", "--version", "Print out version information"),
             ],
-            options: vec![],
-            description: "",
-            subcommands: vec![],
-            callback: None,
             metadata: Some(CmdMetadata::default()),
-            parent: None,
-            cmd_path: "",
-            more_info: "",
+            ..Command::new("")
         }
     }
 }
 
 #[derive(Clone)]
 pub struct Command<'p> {
-    name: &'p str,
+    name: String,
     alias: Option<&'p str>,
     arguments: Vec<Argument>,
     flags: Vec<NewFlag<'p>>,
     options: Vec<NewOption<'p>>,
     description: &'p str,
-    parent: Option<&'p Command<'p>>,
+    parent: Option<Box<Command<'p>>>,
     subcommands: Vec<Command<'p>>,
-    callback: Option<fn() -> ()>,
+    callback: Callback,
     metadata: Option<CmdMetadata<'p>>,
-    cmd_path: &'p str,
+    cmd_path: Vec<String>,
     more_info: &'p str,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CmdMetadata<'a> {
     version: &'a str,
     author: &'a str,
@@ -87,20 +82,41 @@ impl<'d> Default for CmdMetadata<'d> {
     }
 }
 
+impl<'d> Debug for Command<'d> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "name: {},
+             alias: {},
+             args: {:#?},
+             flags: {:#?},
+             options: {:#?},
+             cmd_path: {:#?},
+             sub_cmds: {:#?}",
+            self.name,
+            self.alias.unwrap_or(""),
+            self.arguments,
+            self.flags,
+            self.options,
+            self.cmd_path,
+            self.subcommands
+        ))
+    }
+}
+
 impl<'p> Command<'p> {
     pub(crate) fn new(name: &'p str) -> Self {
         Self {
-            name,
+            name: name.to_string(),
             alias: None,
             arguments: vec![],
             description: "",
             flags: vec![],
             options: vec![],
             subcommands: vec![],
-            callback: None,
+            callback: |_m| {},
             metadata: None,
             parent: None,
-            cmd_path: "",
+            cmd_path: vec![name.to_string()],
             more_info: "",
         }
     }
@@ -124,7 +140,7 @@ impl<'p> Command<'p> {
 
     pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
         if let Some(_meta) = &mut self.metadata {
-            self.name = val
+            self.name = val.to_string()
         }
 
         self
@@ -157,7 +173,7 @@ impl<'p> Command<'p> {
     }
 
     pub fn get_name(&self) -> &str {
-        self.name
+        self.name.as_str()
     }
 
     pub fn get_alias(&self) -> Option<&str> {
@@ -180,8 +196,12 @@ impl<'p> Command<'p> {
         &self.subcommands
     }
 
-    pub fn get_parent(&self) -> Option<&Self> {
-        self.parent
+    pub fn s(&mut self) -> &mut Vec<Self> {
+        &mut self.subcommands
+    }
+
+    pub fn get_parent(&self) -> Option<&Box<Self>> {
+        self.parent.as_ref()
     }
 
     pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
@@ -190,7 +210,7 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
     }
 
-    fn _get_target_name(&self, val: String) -> String {
+    fn _get_target_name(&self, val: &str) -> String {
         if self.name.is_empty() {
             if cfg!(windows) {
                 let path_buff: Vec<&str> = val.split('\\').collect();
@@ -220,20 +240,16 @@ impl<'p> Command<'p> {
         self.subcommands.push(sub_cmd);
     }
 
-    fn _add_parent(mut self, parent_cmd: &'p Self) -> Self {
-        self.parent = Some(parent_cmd);
-        self
-    }
+    // fn _add_parent(mut self, parent_cmd: &'p Self) -> Self {
+    //     self.parent = Some(parent_cmd);
+    //     self
+    // }
 
-    pub fn build(&self, parent_cmd: &'p mut Self) {
+    pub fn build(&mut self, cmd_vec: &mut Vec<Self>) {
         // TODO: Find a way to achieve this without using the build method
-        parent_cmd._add_sub_cmd(self.clone());
-        // match &mut self.parent {
-        //     Some(p) => {
-        //         p._add_sub_cmd(self.clone());
-        //     }
-        //     None => {}
-        // }
+        self.__init();
+        // FIXME: No clones
+        cmd_vec.push(self.clone());
     }
 
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
@@ -257,6 +273,11 @@ impl<'p> Command<'p> {
             self.arguments.push(arg);
         }
 
+        self
+    }
+
+    pub fn action(&mut self, cb: Callback) -> &mut Self {
+        self.callback = cb;
         self
     }
 
@@ -295,51 +316,135 @@ impl<'p> Command<'p> {
         }
     }
 
-    // Parser
-    fn _is_subcommand(&self) -> bool {
-        self.parent.is_some()
-            && self
-                .parent
-                .unwrap()
-                .find_subcommand(self.get_name())
-                .is_some()
-    }
-
-    fn _parse(
-        &'p self,
-        raw_args: &'p [&'p str],
-        root_cfg: Option<ParserMatches<'p>>,
-    ) -> ParserMatches<'p> {
-        if raw_args.is_empty() {
-            // handle empty args
-        }
-
-        let mut config = if let Some(cfg) = root_cfg {
-            cfg
-        } else {
-            ParserMatches::new(raw_args.len())
-        };
-
-        // ["image", "ls", "-p", "80"]
-        for (idx, arg) in raw_args.iter().enumerate() {
-            if let Some(flag) = resolve_arg(&NewFlag::default(), self.get_flags(), arg) {
-                // handle flags input
-            } else if let Some(opt) = resolve_arg(&NewOption::default(), self.get_options(), arg) {
-                //handle opts input
-            } else if let Some(sub_cmd) = self.find_subcommand(arg) {
-                // it is a subcommand/command
-                return sub_cmd._parse(&raw_args[1..], Some(config));
-            } else {
-                // it is either an argument or unknown
+    pub fn set_theme(&mut self, theme: PredefinedThemes) {
+        if let Some(meta) = &mut self.metadata {
+            match theme {
+                PredefinedThemes::Plain => meta.theme = Theme::plain(),
+                PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
             }
         }
-
-        config
     }
 
-    pub fn parse(&mut self) {}
+    pub fn set_pattern(&mut self, ptrn: Pattern) {
+        if let Some(meta) = &mut self.metadata {
+            meta.pattern = ptrn;
+        }
+    }
 
-    pub fn parse_from(&mut self, list: Vec<&str>) {}
+    pub fn define_custom_theme(&mut self, theme: Theme) {
+        if let Some(meta) = &mut self.metadata {
+            meta.theme = theme;
+        }
+    }
+
+    // Parser
+    fn _handle_flags(&mut self, matches: &ParserMatches) {
+        let program = matches.get_program();
+
+        if let Some(_f) = matches.get_flag("-h") {
+            let cfg = EventConfig::default().program(program.clone());
+
+            self.output_help();
+            self.emit(cfg);
+            std::process::exit(0);
+        } else if let Some(_f) = matches.get_flag("-v") {
+            let version = program.get_version();
+
+            let cfg = EventConfig::default()
+                .arg_c(1_usize)
+                .args(vec![version.to_string()])
+                .set_event(Event::OutputVersion)
+                .program(program.clone());
+
+            self.emit(cfg);
+            self.output_version();
+            std::process::exit(0);
+        }
+    }
+
+    fn __parse(&'p mut self, args: &[&str]) {
+        self.__init();
+
+        match NewParser::parse(self, args, None) {
+            Ok(matches) => {
+                if let Some(sub_cmd) = matches.get_matched_cmd() {
+                    (sub_cmd.callback)(matches);
+                } else {
+                    dbg!(matches);
+                }
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                let shared_cfg = EventConfig::default().program(self.clone());
+
+                use CmderError::*;
+                let event_cfg = match e {
+                    MissingArgument(args) => shared_cfg
+                        .arg_c(args.len())
+                        .args(args)
+                        .exit_code(5)
+                        .set_event(Event::MissingArgument),
+                    OptionMissingArgument(args) => shared_cfg
+                        .arg_c(args.len())
+                        .args(args)
+                        .exit_code(10)
+                        .set_event(Event::OptionMissingArgument),
+                    UnknownCommand(cmd) => shared_cfg
+                        .arg_c(1)
+                        .args(vec![cmd.to_string()])
+                        .exit_code(15)
+                        .set_event(Event::UnknownCommand),
+                    UnknownOption(opt) => shared_cfg
+                        .arg_c(1)
+                        .args(vec![opt.to_string()])
+                        .exit_code(20)
+                        .set_event(Event::UnknownOption),
+                };
+
+                self.emit(event_cfg.clone());
+                std::process::exit(event_cfg.get_exit_code() as i32);
+            }
+        }
+    }
+
+    fn __init(&mut self) {
+        let parent = self.clone();
+
+        for cmd in &mut self.subcommands {
+            // Set the cmd_path
+            let mut temp = self.cmd_path.clone();
+            temp.extend_from_slice(&cmd.cmd_path[..]);
+            cmd.cmd_path = temp;
+
+            // Set the parent
+            cmd.parent = Some(Box::new(parent.clone()));
+        }
+
+        if let Some(meta) = &self.metadata {
+            // Means that it is the root_cmd(program)
+            self.on(Event::UnknownCommand, |_cfg| {
+                // Suggest commands functionality
+            })
+        }
+    }
+
+    pub fn parse(&'p mut self) {
+        let raw_args: Vec<_> = std::env::args().collect();
+        let mut cleaned_args = vec![];
+
+        for a in &raw_args {
+            cleaned_args.push(a.as_str());
+        }
+
+        self.name = self._get_target_name(&raw_args[0]);
+        self.cmd_path = vec![self.name.clone()];
+
+        self.__parse(&cleaned_args[1..]);
+    }
+
+    pub fn parse_from(&'p mut self, list: Vec<&str>) {
+        self.__parse(&list[..]);
+    }
 
     pub fn get_matches(&mut self) {}
 
@@ -347,4 +452,14 @@ impl<'p> Command<'p> {
 
     // Others
     pub fn output_help(&self) {}
+
+    pub fn output_version(&self) {}
+
+    pub fn before_all(&self) {}
+
+    pub fn before_help(&self) {}
+
+    pub fn after_all(&self) {}
+
+    pub fn after_help(&self) {}
 }
