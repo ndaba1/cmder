@@ -4,80 +4,168 @@ use crate::core::new_program::Command;
 
 use super::flags::{NewFlag, NewOption};
 
+#[derive(Debug, Clone)]
 pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
-    pub(crate) matched_subcmd: Option<CommandConfig<'pm>>,
-    pub(crate) flags: Vec<FlagsConfig<'pm>>,
-    pub(crate) options: Vec<OptionsConfig<'pm>>,
-    pub(crate) args: ArgsConfig<'pm>,
+    pub(crate) cursor_offset: usize,
+    pub(crate) root_cmd: &'pm Command<'pm>,
+    pub(crate) matched_subcmd: Option<&'pm Command<'pm>>,
+    pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
+    pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
+    pub(crate) arg_matches: Vec<ArgsMatches>,
+    pub(crate) positional_options: &'pm [&'pm str],
 }
 
-pub(crate) struct FlagsConfig<'a> {
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub(crate) struct FlagsMatches<'a> {
     pub(crate) cursor_index: usize,
     pub(crate) flag: NewFlag<'a>,
     pub(crate) appearance_count: usize,
 }
 
-pub(crate) struct OptionsConfig<'o> {
-    cursor_index: usize,
-    option: NewOption<'o>,
-    args: ArgsConfig<'o>,
-    appearance_count: usize,
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct OptionsMatches<'o> {
+    pub(crate) cursor_index: usize,
+    pub(crate) option: NewOption<'o>,
+    pub(crate) args: Vec<ArgsMatches>,
+    pub(crate) appearance_count: usize,
 }
 
-impl<'o> OptionsConfig<'o> {
+impl<'o> OptionsMatches<'o> {
     pub(crate) fn new() -> Self {
         Self {
             appearance_count: 0,
-            args: ArgsConfig::new(),
+            args: vec![],
             cursor_index: 0,
             option: NewOption::default(),
         }
     }
 }
 
-impl<'d> Default for OptionsConfig<'d> {
-    fn default() -> Self {
-        Self {
-            appearance_count: 0,
-            args: ArgsConfig::new(),
-            cursor_index: 0,
-            option: NewOption::default(),
-        }
-    }
+#[derive(Debug, Clone)]
+pub(crate) struct CommandMatches<'b> {
+    pub(crate) cursor_index: usize,
+    pub(crate) command: Command<'static>,
+    pub(crate) args: ArgsMatches,
+    pub(crate) flags: Vec<FlagsMatches<'b>>,
 }
 
-pub(crate) struct CommandConfig<'b> {
-    cursor_index: usize,
-    command: Command<'static>,
-    args: ArgsConfig<'b>,
-    flags: Vec<FlagsConfig<'b>>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ArgsMatches {
+    pub(crate) cursor_index: usize,
+    pub(crate) raw_value: String,
+    pub(crate) instance_of: String,
 }
 
-pub(crate) struct ArgsConfig<'c> {
-    cursor_index: usize,
-    raw_value: &'c str,
-    value_of: &'c str,
-}
-
-impl<'args> ArgsConfig<'args> {
+impl<'args> ArgsMatches {
     pub(crate) fn new() -> Self {
         Self {
             cursor_index: 0,
-            raw_value: "",
-            value_of: "",
+            raw_value: String::new(),
+            instance_of: String::new(),
         }
     }
 }
 
 impl<'a> ParserMatches<'a> {
-    pub(crate) fn new(count: usize) -> Self {
+    pub(crate) fn new(count: usize, root_cmd: &'a Command<'a>) -> Self {
         Self {
             arg_count: count,
-            flags: vec![],
+            cursor_offset: 0,
+            flag_matches: vec![],
+            root_cmd,
             matched_subcmd: None,
-            args: ArgsConfig::new(),
-            options: vec![OptionsConfig::default()],
+            arg_matches: vec![],
+            option_matches: vec![],
+            positional_options: &[],
         }
+    }
+
+    pub fn get_program(&self) -> &'a Command<'a> {
+        self.root_cmd
+    }
+
+    pub fn get_matched_cmd(&self) -> Option<&'a Command<'a>> {
+        self.matched_subcmd
+    }
+
+    pub fn get_arg_count(&self) -> usize {
+        self.arg_count
+    }
+
+    pub fn get_flag(&self, val: &str) -> Option<NewFlag> {
+        self.flag_matches
+            .iter()
+            .find(|f| {
+                let flag = &f.flag;
+                flag.short_version == val || flag.long_version == val
+            })
+            .map(|fm| fm.flag.clone())
+    }
+
+    pub fn get_option(&self, val: &str) -> Option<NewOption> {
+        self.option_matches
+            .iter()
+            .find(|opc| {
+                let option = &opc.option;
+                option.long_version == val || option.short_version == val
+            })
+            .map(|opm| opm.option.clone())
+    }
+
+    pub fn contains_flag(&self, val: &str) -> bool {
+        self.flag_matches.iter().any(|f| {
+            let flag = &f.flag;
+            flag.short_version == val || flag.long_version == val
+        })
+    }
+
+    pub fn contains_option(&self, val: &str) -> bool {
+        self.option_matches.iter().any(|o| {
+            let op = &o.option;
+            op.short_version == val || op.long_version == val
+        })
+    }
+
+    pub fn get_flag_count(&self, val: &str) -> i32 {
+        let mut count = 0;
+
+        for fc in &self.flag_matches {
+            let flag = &fc.flag;
+
+            if flag.short_version == val || flag.long_version == val {
+                count += 1;
+            }
+        }
+
+        count
+    }
+
+    pub fn get_option_count(&self, val: &str) -> i32 {
+        let mut count = 0;
+
+        for fc in &self.option_matches {
+            let flag = &fc.option;
+
+            if flag.short_version == val || flag.long_version == val {
+                count += 1;
+            }
+        }
+
+        count
+    }
+
+    pub(crate) fn get_option_config(&self, val: &str) -> Option<&OptionsMatches> {
+        let mut cfg = None;
+
+        for opc in &self.option_matches {
+            let op = &opc.option;
+
+            if op.short_version == val || op.long_version == val {
+                cfg = Some(opc);
+            }
+        }
+
+        cfg
     }
 }
