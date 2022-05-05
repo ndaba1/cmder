@@ -26,7 +26,7 @@ impl Program {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Command<'static> {
         Command {
-            name: "",
+            name: "".to_string(),
             alias: None,
             arguments: vec![],
             flags: vec![
@@ -47,7 +47,7 @@ impl Program {
 
 #[derive(Clone)]
 pub struct Command<'p> {
-    name: &'p str,
+    name: String,
     alias: Option<&'p str>,
     arguments: Vec<Argument>,
     flags: Vec<NewFlag<'p>>,
@@ -92,24 +92,14 @@ impl<'d> Default for CmdMetadata<'d> {
 
 impl<'d> Debug for Command<'d> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "
-                {},
-                {},
-                {:#?},
-                {:#?},
-                {:#?},
-                {:#?},
-            ",
-            self.name, self.description, self.arguments, self.flags, self.options, self.subcommands
-        ))
+        f.write_str("Command data")
     }
 }
 
 impl<'p> Command<'p> {
     pub(crate) fn new(name: &'p str) -> Self {
         Self {
-            name,
+            name: name.to_string(),
             alias: None,
             arguments: vec![],
             description: "",
@@ -143,7 +133,7 @@ impl<'p> Command<'p> {
 
     pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
         if let Some(_meta) = &mut self.metadata {
-            self.name = val
+            self.name = val.to_string()
         }
 
         self
@@ -176,7 +166,7 @@ impl<'p> Command<'p> {
     }
 
     pub fn get_name(&self) -> &str {
-        self.name
+        self.name.as_str()
     }
 
     pub fn get_alias(&self) -> Option<&str> {
@@ -213,7 +203,7 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
     }
 
-    fn _get_target_name(&self, val: String) -> String {
+    fn _get_target_name(&self, val: &String) -> String {
         if self.name.is_empty() {
             if cfg!(windows) {
                 let path_buff: Vec<&str> = val.split('\\').collect();
@@ -248,7 +238,7 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn build(&self, cmd_vec: &mut Vec<Self>) {
+    pub fn build(&mut self, cmd_vec: &mut Vec<Self>) {
         // TODO: Find a way to achieve this without using the build method
         // FIXME: No clones
         cmd_vec.push(self.clone());
@@ -336,13 +326,15 @@ impl<'p> Command<'p> {
             cleaned_args.push(a.as_str());
         }
 
-        // self.name = self._get_target_name(raw_args[0]).as_str();
+        self.name = self._get_target_name(&raw_args[0]);
 
         match NewParser::parse(self, &cleaned_args[1..], None) {
             Ok(res) => {
                 dbg!(res);
             }
-            _ => {}
+            Err(e) => {
+                eprintln!("{e}")
+            }
         }
     }
 
