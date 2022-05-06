@@ -446,9 +446,14 @@ impl<'p> Command<'p> {
         self.__parse(&list[..]);
     }
 
-    pub fn get_matches(&mut self) {}
+    pub fn get_matches(&'p mut self) {}
 
-    pub fn get_matches_from(&mut self, list: Vec<&str>) {}
+    pub fn get_matches_from(
+        &'p mut self,
+        list: &'p [&'p str],
+    ) -> Result<ParserMatches<'p>, CmderError<'p>> {
+        NewParser::parse(self, list, None)
+    }
 
     // Others
     pub fn output_help(&self) {}
