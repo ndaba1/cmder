@@ -15,4 +15,4 @@ pub mod errors;
 
 pub use events::{Event, EventConfig, EventEmitter};
 pub use program::Program;
-pub use settings::ProgramSettings;
+pub use settings::{ProgramSettings, Setting};
