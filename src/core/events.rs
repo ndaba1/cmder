@@ -91,7 +91,7 @@ pub type NewListener = fn(EventConfig) -> ();
 
 #[derive(Clone)]
 pub struct NewEventEmitter {
-    listeners: HashMap<Event, Vec<NewListener>>,
+    listeners: HashMap<Event, Vec<(NewListener, i32)>>,
 }
 
 impl Debug for NewEventEmitter {
@@ -107,18 +107,28 @@ impl NewEventEmitter {
         }
     }
 
-    pub fn on(&mut self, event: Event, cb: NewListener) {
+    pub fn on(&mut self, event: Event, cb: NewListener, pstn: i32) {
         match self.listeners.get(&event) {
             Some(lstnrs) => {
                 let mut temp = vec![];
 
-                temp.extend_from_slice(&lstnrs[..]);
-                temp.push(cb);
+                if pstn == -1 {
+                    temp.push((cb, pstn));
+
+                    for l in lstnrs {
+                        temp.push((l.0, l.1));
+                    }
+                } else if pstn == 0 {
+                    for l in lstnrs {
+                        temp.push((l.0, l.1));
+                    }
+                    temp.push((cb, pstn));
+                }
 
                 self.listeners.insert(event, temp);
             }
             None => {
-                self.listeners.insert(event, vec![cb]);
+                self.listeners.insert(event, vec![(cb, pstn)]);
             }
         };
     }
