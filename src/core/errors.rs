@@ -4,10 +4,10 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum CmderError<'err> {
-    MissingArgument(Vec<String>),
-    OptionMissingArgument(Vec<String>),
-    UnknownCommand(&'err str),
-    UnknownOption(&'err str),
+    MissingArgument(Vec<String>),       // exit code 1
+    OptionMissingArgument(Vec<String>), // exit code 5
+    UnknownCommand(&'err str),          // exit code 10
+    UnknownOption(&'err str),           // exit code 15
 }
 
 impl<'a> fmt::Display for CmderError<'a> {
