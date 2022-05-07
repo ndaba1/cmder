@@ -7,6 +7,7 @@ use super::{new_program::Command, Program};
 pub struct EventConfig<'e> {
     args: Vec<String>,
     arg_count: usize,
+    error_string: String,
     exit_code: usize,
     event_type: Event,
     matched_cmd: Option<&'e Command<'e>>,
@@ -32,6 +33,10 @@ impl<'a> EventConfig<'a> {
         self.exit_code
     }
 
+    pub fn get_error_str(&self) -> &str {
+        self.error_string.as_str()
+    }
+
     pub fn get_matched_cmd(&self) -> Option<&Command<'a>> {
         self.matched_cmd
     }
@@ -49,6 +54,11 @@ impl<'a> EventConfig<'a> {
 
     pub fn exit_code(mut self, code: usize) -> Self {
         self.exit_code = code;
+        self
+    }
+
+    pub fn error_str(mut self, val: String) -> Self {
+        self.error_string = val;
         self
     }
 
@@ -77,6 +87,7 @@ impl<'d> Default for EventConfig<'d> {
     fn default() -> Self {
         Self {
             additional_info: "",
+            error_string: "".into(),
             arg_count: 0,
             args: vec![],
             event_type: Event::OutputHelp,
@@ -112,18 +123,10 @@ impl NewEventEmitter {
             Some(lstnrs) => {
                 let mut temp = vec![];
 
-                if pstn == -1 {
-                    temp.push((cb, pstn));
-
-                    for l in lstnrs {
-                        temp.push((l.0, l.1));
-                    }
-                } else if pstn == 0 {
-                    for l in lstnrs {
-                        temp.push((l.0, l.1));
-                    }
-                    temp.push((cb, pstn));
+                for l in lstnrs {
+                    temp.push((l.0, l.1));
                 }
+                temp.push((cb, pstn));
 
                 self.listeners.insert(event, temp);
             }
@@ -150,14 +153,42 @@ impl NewEventEmitter {
     }
 
     pub(crate) fn insert_before_all(&mut self, cb: NewListener) {
-        for lstnr in self.listeners.clone() {
-            self.on(lstnr.0, cb, -1); // Insert before all listeners
+        match self.listeners.len() {
+            0 => {
+                use Event::*;
+
+                self.on(MissingArgument, cb, -1);
+                self.on(OptionMissingArgument, cb, -1);
+                self.on(OutputHelp, cb, -1);
+                self.on(OutputVersion, cb, -1);
+                self.on(UnknownCommand, cb, -1);
+                self.on(UnknownOption, cb, -1);
+            }
+            _ => {
+                for lstnr in self.listeners.clone() {
+                    self.on(lstnr.0, cb, -1); // Insert before all listeners
+                }
+            }
         }
     }
 
     pub(crate) fn insert_after_all(&mut self, cb: NewListener) {
-        for lstnr in self.listeners.clone() {
-            self.on(lstnr.0, cb, 1); // Insert after all listeners
+        match self.listeners.len() {
+            0 => {
+                use Event::*;
+
+                self.on(MissingArgument, cb, 1);
+                self.on(OptionMissingArgument, cb, 1);
+                self.on(OutputHelp, cb, 1);
+                self.on(OutputVersion, cb, 1);
+                self.on(UnknownCommand, cb, 1);
+                self.on(UnknownOption, cb, 1);
+            }
+            _ => {
+                for lstnr in self.listeners.clone() {
+                    self.on(lstnr.0, cb, 1); // Insert after all listeners
+                }
+            }
         }
     }
 }
