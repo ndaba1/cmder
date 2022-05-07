@@ -137,11 +137,27 @@ impl NewEventEmitter {
         let event = cfg.get_event();
 
         if let Some(lstnrs) = self.listeners.get(&event) {
-            for cb in lstnrs {
+            let mut lstnrs = lstnrs.clone();
+
+            lstnrs.sort_by(|a, b| a.1.cmp(&b.1));
+
+            for (cb, idx) in lstnrs.iter() {
                 cb(cfg.clone());
             }
 
             std::process::exit(cfg.get_exit_code() as i32);
+        }
+    }
+
+    pub(crate) fn insert_before_all(&mut self, cb: NewListener) {
+        for lstnr in self.listeners.clone() {
+            self.on(lstnr.0, cb, -1); // Insert before all listeners
+        }
+    }
+
+    pub(crate) fn insert_after_all(&mut self, cb: NewListener) {
+        for lstnr in self.listeners.clone() {
+            self.on(lstnr.0, cb, 1); // Insert after all listeners
         }
     }
 }
