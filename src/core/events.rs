@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use super::{new_program::Command, Program};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EventConfig<'e> {
     args: Vec<String>,
     arg_count: usize,
