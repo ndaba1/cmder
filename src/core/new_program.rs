@@ -10,6 +10,7 @@ use crate::{
         parser::NewParser,
         resolve_flag, Argument, Flag,
     },
+    utils::{self, suggest_cmd},
     Event, Pattern, PredefinedThemes, Theme,
 };
 
@@ -372,7 +373,7 @@ impl<'p> Command<'p> {
                 if let Some(sub_cmd) = matches.get_matched_cmd() {
                     (sub_cmd.callback)(matches);
                 } else {
-                    dbg!(matches);
+                    (self.callback)(matches);
                 }
             }
             Err(e) => {
@@ -423,11 +424,39 @@ impl<'p> Command<'p> {
         }
 
         // Means that it is the root_cmd(program)
-        if let Some(meta) = &self.metadata {
+        if let Some(meta) = self.metadata.clone() {
+            let settings = &meta.settings;
+
+            // Register help listeners
+            if settings.show_help_on_error {
+                let _output_help_ = |cfg: EventConfig| {
+                    let prog = cfg.get_program();
+
+                    if let Some(cmd) = cfg.get_matched_cmd() {
+                        cmd.output_help()
+                    } else {
+                        prog.output_help()
+                    }
+                };
+
+                use Event::*;
+                // Output help on all error events
+                self.on(MissingArgument, _output_help_);
+                self.on(OptionMissingArgument, _output_help_);
+                self.on(UnknownCommand, _output_help_);
+                self.on(UnknownOption, _output_help_);
+            }
+
             // Register listener for unknown commands
-            if meta.settings.enable_command_suggestions {
-                self.on(Event::UnknownCommand, |_cfg| {
+            if settings.enable_command_suggestions {
+                self.on(Event::UnknownCommand, |cfg| {
                     // Suggest command
+                    let prog = cfg.get_program();
+                    let cmd = &cfg.get_args()[0];
+
+                    if let Some(_ans) = suggest_cmd(&cmd, prog.get_subcommands()) {
+                        // output command suggestion
+                    }
                 })
             }
         }
@@ -457,6 +486,9 @@ impl<'p> Command<'p> {
     }
 
     // Others
+    fn suggest_cmd(&self, cmd: &str) -> Option<String> {
+        utils::suggest_cmd(cmd, self.get_subcommands())
+    }
     pub fn output_help(&self) {}
 
     pub fn output_version(&self) {}
