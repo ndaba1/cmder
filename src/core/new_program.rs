@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, env, fmt::Debug};
 
 use crate::{
     core::errors::CmderError,
@@ -16,6 +16,7 @@ use crate::{
 use super::{
     super::parse::flags::{NewFlag, NewOption},
     events::{EventConfig, NewEventEmitter},
+    settings::{NewProgramSettings, Setting},
 };
 use super::{events::NewListener, ProgramSettings};
 
@@ -60,7 +61,7 @@ pub struct CmdMetadata<'a> {
     theme: Theme,
     pattern: Pattern,
     emitter: NewEventEmitter,
-    settings: ProgramSettings,
+    settings: NewProgramSettings,
 }
 
 impl<'c> CmdMetadata<'c> {
@@ -71,7 +72,7 @@ impl<'c> CmdMetadata<'c> {
             theme: Theme::default(),
             pattern: Pattern::Legacy,
             emitter: NewEventEmitter::default(),
-            settings: ProgramSettings::default(),
+            settings: NewProgramSettings::default(),
         }
     }
 }
@@ -316,24 +317,25 @@ impl<'p> Command<'p> {
         }
     }
 
-    pub fn set_theme(&mut self, theme: PredefinedThemes) {
+    pub fn set(&mut self, setting: Setting) {
         if let Some(meta) = &mut self.metadata {
-            match theme {
-                PredefinedThemes::Plain => meta.theme = Theme::plain(),
-                PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
+            use Setting::*;
+            match setting {
+                EnableCommandSuggestion(enable) => {
+                    meta.settings.enable_command_suggestions = enable
+                }
+                HideCommandAliases(hide) => meta.settings.hide_command_aliases = hide,
+                SeparateOptionsAndFlags(separate) => {
+                    meta.settings.separate_options_and_flags = separate
+                }
+                ShowHelpOnError(show) => meta.settings.show_help_on_error = show,
+                ChoosePredefinedTheme(theme) => match theme {
+                    PredefinedThemes::Plain => meta.theme = Theme::plain(),
+                    PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
+                },
+                DefineCustomTheme(theme) => meta.theme = theme,
+                SetProgramPattern(pattern) => meta.pattern = pattern,
             }
-        }
-    }
-
-    pub fn set_pattern(&mut self, ptrn: Pattern) {
-        if let Some(meta) = &mut self.metadata {
-            meta.pattern = ptrn;
-        }
-    }
-
-    pub fn define_custom_theme(&mut self, theme: Theme) {
-        if let Some(meta) = &mut self.metadata {
-            meta.theme = theme;
         }
     }
 
@@ -420,26 +422,25 @@ impl<'p> Command<'p> {
             cmd.parent = Some(Box::new(parent.clone()));
         }
 
+        // Means that it is the root_cmd(program)
         if let Some(meta) = &self.metadata {
-            // Means that it is the root_cmd(program)
-            self.on(Event::UnknownCommand, |_cfg| {
-                // Suggest commands functionality
-            })
+            // Register listener for unknown commands
+            if meta.settings.enable_command_suggestions {
+                self.on(Event::UnknownCommand, |_cfg| {
+                    // Suggest command
+                })
+            }
         }
     }
 
     pub fn parse(&'p mut self) {
-        let raw_args: Vec<_> = std::env::args().collect();
-        let mut cleaned_args = vec![];
+        let raw_args = env::args().collect::<Vec<_>>();
+        let args = raw_args.iter().map(|a| a.as_str()).collect::<Vec<_>>();
 
-        for a in &raw_args {
-            cleaned_args.push(a.as_str());
-        }
-
-        self.name = self._get_target_name(&raw_args[0]);
+        self.name = self._get_target_name(args[0]);
         self.cmd_path = vec![self.name.clone()];
 
-        self.__parse(&cleaned_args[1..]);
+        self.__parse(&args[1..]);
     }
 
     pub fn parse_from(&'p mut self, list: Vec<&str>) {
