@@ -10,7 +10,7 @@ pub struct ProgramSettings {
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct NewProgramSettings {
+pub(crate) struct NewProgramSettings {
     pub(crate) show_help_on_error: bool,
     pub(crate) enable_command_suggestions: bool,
     pub(crate) hide_command_aliases: bool,
