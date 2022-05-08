@@ -379,13 +379,13 @@ impl<'p> Command<'p> {
     }
 
     fn __parse(&'p mut self, args: Vec<String>) {
-        self.__init();
+        self.__init(); // performance dip here
 
-        // FIXME: no clones
-        let clone = self.clone();
-        match NewParser::parse(&clone, args, None) {
+        // FIXME: no clones - performace dip here
+        // let clone = self.clone();
+        match NewParser::parse(self, args, None) {
             Ok(matches) => {
-                self._handle_flags(&matches);
+                // self._handle_flags(&matches);
 
                 if let Some(sub_cmd) = matches.get_matched_cmd() {
                     (sub_cmd.callback)(matches);
