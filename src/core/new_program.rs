@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use std::{collections::HashMap, env, fmt::Debug};
+use std::{cell::RefCell, collections::HashMap, env, fmt::Debug, rc::Rc};
 
 use crate::{
     core::errors::CmderError,
@@ -49,7 +49,7 @@ pub struct Command<'p> {
     flags: Vec<NewFlag<'p>>,
     options: Vec<NewOption<'p>>,
     description: &'p str,
-    parent: Option<Box<Command<'p>>>,
+    parent: Option<Rc<Command<'p>>>,
     subcommands: Vec<Command<'p>>,
     callbacks: Vec<(Callback, i32)>, // (cb_function, index_of_execution)
     metadata: Option<CmdMetadata<'p>>,
@@ -208,7 +208,7 @@ impl<'p> Command<'p> {
         &mut self.subcommands
     }
 
-    pub fn get_parent(&self) -> Option<&Box<Self>> {
+    pub fn get_parent(&self) -> Option<&Rc<Self>> {
         self.parent.as_ref()
     }
 
@@ -261,9 +261,9 @@ impl<'p> Command<'p> {
         self.subcommands.push(sub_cmd);
     }
 
-    fn _add_parent(&mut self, parent: Self) -> &mut Self {
-        self.parent = Some(Box::new(parent.clone()));
-        self
+    fn _add_parent(&mut self, parent: Rc<Self>) -> Self {
+        self.parent = Some(parent);
+        self.to_owned()
     }
 
     pub fn build(&mut self) {
@@ -281,7 +281,9 @@ impl<'p> Command<'p> {
     }
 
     pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
-        self.subcommands.push(Self::new(name));
+        let parent = Rc::new(self.to_owned());
+        self.subcommands
+            .push(Self::new(name)._add_parent(Rc::clone(&parent)));
         self.subcommands.last_mut().unwrap()
     }
 
@@ -385,6 +387,7 @@ impl<'p> Command<'p> {
     fn __parse(&'p mut self, args: Vec<String>) {
         if args.is_empty() {
             // handle empty args
+            return;
         }
 
         // TODO: Change get target name to account for non path-buffer values
@@ -393,7 +396,7 @@ impl<'p> Command<'p> {
 
         self.__init(); // performance dip here
 
-        match NewParser::parse(self, args, None) {
+        match NewParser::parse(self, args[1..].to_vec(), None) {
             Ok(matches) => {
                 let exec_callbacks = |cmd: &Command| {
                     // FIXME: No clones
@@ -454,10 +457,9 @@ impl<'p> Command<'p> {
     }
 
     fn __init(&mut self) {
-        // FIXME: No clones
-        let parent = self.clone();
-
         if !self.subcommands.is_empty() {
+            // Add help subcommand
+            // TODO: Check settings for help command
             self.subcommand("help")
                 .argument("<SUB-COMMAND>", "The subcommand to print out help info for")
                 .description("A subcommand used for printing out help")
@@ -471,17 +473,6 @@ impl<'p> Command<'p> {
                     }
                 })
                 .build();
-        }
-
-        for cmd in &mut self.subcommands {
-            // Set the cmd_path
-            // let mut temp = self.cmd_path.clone();
-            // temp.extend_from_slice(&cmd.cmd_path[..]);
-            // cmd.cmd_path = temp;
-
-            // Set the parent
-            // FIXME: No clones
-            cmd.parent = Some(Box::new(parent.clone()));
         }
 
         // Means that it is the root_cmd(program)
@@ -602,6 +593,30 @@ impl<'p> Command<'p> {
     pub fn after_help(&mut self, cb: NewListener) {
         if let Some(meta) = &mut self.metadata {
             meta.emitter.on(Event::OutputHelp, cb, 1)
+        }
+    }
+
+    // Debug utilities
+    pub fn display_commands_tree(&self) {
+        let mut commands = self.get_subcommands();
+        let mut empty = String::new();
+
+        let mut parent = self.get_parent();
+
+        while parent.is_some() {
+            empty.push_str("\t");
+
+            let grandparent = parent.unwrap().get_parent();
+            if grandparent.is_some() {
+                empty.push_str("|");
+            }
+            parent = grandparent;
+        }
+
+        println!("{}-> {}", &empty, self.get_name());
+
+        for cmd in commands.iter() {
+            cmd.display_commands_tree();
         }
     }
 }
