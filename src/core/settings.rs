@@ -1,4 +1,4 @@
-use crate::{Pattern, PredefinedThemes, Theme};
+use crate::{Event, Pattern, PredefinedThemes, Theme};
 
 #[derive(Debug, Clone)]
 pub struct ProgramSettings {
@@ -14,7 +14,9 @@ pub(crate) struct NewProgramSettings {
     pub(crate) show_help_on_error: bool,
     pub(crate) enable_command_suggestions: bool,
     pub(crate) hide_command_aliases: bool,
+    pub(crate) events_to_override: Vec<Event>,
     pub(crate) separate_options_and_flags: bool,
+    pub(crate) override_all_default_listeners: bool,
 }
 
 impl Default for NewProgramSettings {
@@ -24,6 +26,8 @@ impl Default for NewProgramSettings {
             enable_command_suggestions: true,
             hide_command_aliases: true,
             separate_options_and_flags: false,
+            override_all_default_listeners: false,
+            events_to_override: vec![],
         }
     }
 }
@@ -37,6 +41,8 @@ pub enum Setting {
     DefineCustomTheme(Theme),
     ChoosePredefinedTheme(PredefinedThemes),
     SetProgramPattern(Pattern),
+    OverrideAllDefaultListeners(bool),
+    OverrideSpecificEventListener(Event),
 }
 
 impl ProgramSettings {
