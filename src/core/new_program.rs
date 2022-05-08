@@ -332,22 +332,22 @@ impl<'p> Command<'p> {
 
     pub fn set(&mut self, setting: Setting) {
         if let Some(meta) = &mut self.metadata {
+            let s = &mut meta.settings;
+
             use Setting::*;
             match setting {
-                EnableCommandSuggestion(enable) => {
-                    meta.settings.enable_command_suggestions = enable
-                }
-                HideCommandAliases(hide) => meta.settings.hide_command_aliases = hide,
-                SeparateOptionsAndFlags(separate) => {
-                    meta.settings.separate_options_and_flags = separate
-                }
-                ShowHelpOnError(show) => meta.settings.show_help_on_error = show,
+                EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
+                HideCommandAliases(hide) => s.hide_command_aliases = hide,
+                SeparateOptionsAndFlags(separate) => s.separate_options_and_flags = separate,
+                ShowHelpOnError(show) => s.show_help_on_error = show,
                 ChoosePredefinedTheme(theme) => match theme {
                     PredefinedThemes::Plain => meta.theme = Theme::plain(),
                     PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
                 },
                 DefineCustomTheme(theme) => meta.theme = theme,
                 SetProgramPattern(pattern) => meta.pattern = pattern,
+                OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
+                OverrideSpecificEventListener(event) => s.events_to_override.push(event),
             }
         }
     }
@@ -372,16 +372,19 @@ impl<'p> Command<'p> {
                 .program(program.clone());
 
             self.emit(cfg);
-            self.output_version();
             std::process::exit(0);
         }
     }
 
-    fn __parse(&'p mut self, args: &[&str]) {
+    fn __parse(&'p mut self, args: Vec<String>) {
         self.__init();
 
-        match NewParser::parse(self, args, None) {
+        // FIXME: no clones
+        let clone = self.clone();
+        match NewParser::parse(&clone, args, None) {
             Ok(matches) => {
+                self._handle_flags(&matches);
+
                 if let Some(sub_cmd) = matches.get_matched_cmd() {
                     (sub_cmd.callback)(matches);
                 } else {
@@ -389,8 +392,9 @@ impl<'p> Command<'p> {
                 }
             }
             Err(e) => {
-                eprintln!("{e}");
-                let shared_cfg = EventConfig::default().program(self.clone());
+                let shared_cfg = EventConfig::default()
+                    .program(self.clone())
+                    .error_str(e.clone().into());
 
                 use CmderError::*;
                 let event_cfg = match e {
@@ -416,8 +420,7 @@ impl<'p> Command<'p> {
                         .set_event(Event::UnknownOption),
                 };
 
-                self.emit(event_cfg.clone());
-                std::process::exit(event_cfg.get_exit_code() as i32);
+                self.emit(event_cfg);
             }
         }
     }
@@ -436,8 +439,56 @@ impl<'p> Command<'p> {
         }
 
         // Means that it is the root_cmd(program)
-        if let Some(meta) = self.metadata.clone() {
+        if let Some(meta) = &mut self.metadata {
             let settings = &meta.settings;
+
+            // Register default listeners
+            if !settings.override_all_default_listeners {
+                // Default behavior for errors is to print the error message
+                meta.emitter.on_all(
+                    |cfg| {
+                        let error = cfg.get_error_str();
+
+                        if !error.is_empty() {
+                            eprintln!("Error: {error}");
+                        }
+                    },
+                    -4,
+                );
+
+                // Remove output_help and output_version error listeners since they are not errors
+                meta.emitter.rm_lstnrs_with_index(OutputHelp, -4);
+                meta.emitter.rm_lstnrs_with_index(OutputVersion, -4);
+
+                use Event::*;
+                meta.emitter.on(
+                    OutputVersion,
+                    |cfg| {
+                        let p = cfg.get_program();
+
+                        println!("{}, v{}", p.get_name(), p.get_version());
+                        println!("{}", p.get_author());
+                        println!("{}", p.get_description());
+                    },
+                    -4,
+                );
+
+                if settings.events_to_override.contains(&MissingArgument) {
+                    meta.emitter.rm_lstnrs_with_index(MissingArgument, -4)
+                }
+                if settings.events_to_override.contains(&OptionMissingArgument) {
+                    meta.emitter.rm_lstnrs_with_index(OptionMissingArgument, -4)
+                }
+                if settings.events_to_override.contains(&UnknownCommand) {
+                    meta.emitter.rm_lstnrs_with_index(UnknownCommand, -4)
+                }
+                if settings.events_to_override.contains(&UnknownOption) {
+                    meta.emitter.rm_lstnrs_with_index(UnknownOption, -4)
+                }
+                if settings.events_to_override.contains(&OutputVersion) {
+                    meta.emitter.rm_lstnrs_with_index(OutputVersion, -4)
+                }
+            }
 
             // Register help listeners
             if settings.show_help_on_error {
