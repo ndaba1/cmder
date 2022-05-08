@@ -157,7 +157,7 @@ impl NewEventEmitter {
             0 => self.on_all(cb, -5),
             _ => {
                 for lstnr in self.listeners.clone() {
-                    self.on(lstnr.0, cb, -1); // Insert before all listeners
+                    self.on(lstnr.0, cb, -5); // Insert before all listeners
                 }
             }
         }
@@ -168,7 +168,7 @@ impl NewEventEmitter {
             0 => self.on_all(cb, 5),
             _ => {
                 for lstnr in self.listeners.clone() {
-                    self.on(lstnr.0, cb, 1); // Insert after all listeners
+                    self.on(lstnr.0, cb, 5); // Insert after all listeners
                 }
             }
         }
@@ -177,15 +177,21 @@ impl NewEventEmitter {
     pub(crate) fn on_all(&mut self, cb: NewListener, pstn: i32) {
         use Event::*;
 
-        self.on(MissingArgument, cb, pstn);
-        self.on(OptionMissingArgument, cb, pstn);
         self.on(OutputHelp, cb, pstn);
         self.on(OutputVersion, cb, pstn);
+        self.on_all_errors(cb, pstn)
+    }
+
+    pub(crate) fn on_all_errors(&mut self, cb: NewListener, pstn: i32) {
+        use Event::*;
+
+        self.on(MissingArgument, cb, pstn);
+        self.on(OptionMissingArgument, cb, pstn);
         self.on(UnknownCommand, cb, pstn);
         self.on(UnknownOption, cb, pstn);
     }
 
-    pub(crate) fn rm_lstnrs_with_index(&mut self, event: Event, val: i32) {
+    pub(crate) fn rm_lstnr_idx(&mut self, event: Event, val: i32) {
         if let Some(lstnrs) = self.listeners.get_mut(&event) {
             for (idx, lstnr) in lstnrs.clone().iter().enumerate() {
                 if lstnr.1 == val {
@@ -215,8 +221,6 @@ pub struct EventEmitter {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
-    EmptyArguments,
-
     /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
     MissingArgument,
@@ -240,6 +244,8 @@ pub enum Event {
 
     /// This occurs when an unknown flag or option is passed to the program, the value passed to the callback being the unknown option and also overrides the default program behavior.
     UnknownOption,
+
+    UnresolvedArgument,
 }
 
 impl EventEmitter {
