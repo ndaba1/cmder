@@ -156,9 +156,10 @@ pub fn resolve_flag(list: &[Flag], val: &str) -> Option<Flag> {
     flag
 }
 
-pub(crate) fn resolve_new_flag<'f>(list: &'f [NewFlag], val: &'f str) -> Option<NewFlag<'f>> {
+pub(crate) fn resolve_new_flag<'f>(list: &'f [NewFlag], val: String) -> Option<NewFlag<'f>> {
     let mut flag = None;
 
+    let val = val.as_str();
     for f in list {
         if f.short_version == val || f.long_version == val {
             flag = Some(f.clone());
@@ -167,9 +168,10 @@ pub(crate) fn resolve_new_flag<'f>(list: &'f [NewFlag], val: &'f str) -> Option<
     flag
 }
 
-pub(crate) fn resolve_new_option<'o>(list: &'o [NewOption], val: &'o str) -> Option<NewOption<'o>> {
+pub(crate) fn resolve_new_option<'o>(list: &'o [NewOption], val: String) -> Option<NewOption<'o>> {
     let mut flag = None;
 
+    let val = val.as_str();
     for f in list {
         if f.short_version == val || f.long_version == val {
             flag = Some(f.clone());
