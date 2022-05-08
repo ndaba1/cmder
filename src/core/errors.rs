@@ -4,30 +4,38 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum CmderError {
-    MissingArgument(Vec<String>),       // exit code 1
-    OptionMissingArgument(Vec<String>), // exit code 5
-    UnknownCommand(String),             // exit code 10
-    UnknownOption(String),              // exit code 15
+    MissingArgument(Vec<String>),       // exit code 5
+    OptionMissingArgument(Vec<String>), // exit code 10
+    UnknownCommand(String),             // exit code 15
+    UnknownOption(String),              // exit code 20
+    UnresolvedArgument(Vec<String>),    // exit code 25
 }
 
-impl Into<String> for CmderError {
-    fn into(self) -> String {
-        match self {
-            CmderError::MissingArgument(ref val) => {
+pub type CmderResult<T, E = CmderError> = Result<T, E>;
+
+impl From<CmderError> for String {
+    fn from(err: CmderError) -> Self {
+        use CmderError::*;
+        match err {
+            MissingArgument(ref val) => {
                 let arg_string = get_vector_string(val);
                 format!("Missing the following required argument(s): {arg_string}")
             }
-            CmderError::OptionMissingArgument(ref args) => {
+            OptionMissingArgument(ref args) => {
                 format!(
                     "Missing required argument(s): `{}` for option: `{}`",
                     args[0], args[1]
                 )
             }
-            CmderError::UnknownCommand(cmd) => {
+            UnknownCommand(cmd) => {
                 format!("Could not find command: `{cmd}`")
             }
-            CmderError::UnknownOption(opt) => {
+            UnknownOption(opt) => {
                 format!("You have passed an unknown option: `{opt}`")
+            }
+            UnresolvedArgument(ref vals) => {
+                let arg_string = get_vector_string(vals);
+                format!("Could not resolve the following argument(s): {arg_string}")
             }
         }
     }
