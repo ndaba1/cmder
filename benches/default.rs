@@ -4,19 +4,15 @@ pub fn build_old(c: &mut Criterion) {
     use cmder::Program;
     c.bench_function("build old", |b| {
         b.iter(|| {
-            let mut program = Program::new();
+            let program = Program::new();
 
-            program
-                .author("vndaba")
-                .bin_name("bench")
-                .description("Benchmarks")
-                .version("0.1.0");
+            // program
+            //     .author("vndaba")
+            //     .bin_name("bench")
+            //     .description("Benchmarks")
+            //     .version("0.1.0");
 
-            program
-                .command("empty")
-                .option("-x --extra", "Something extra")
-                .option("-x --extra", "Something extra")
-                .build(&mut program);
+            program.command("empty");
         })
     });
 }
@@ -27,17 +23,13 @@ pub fn build_new(c: &mut Criterion) {
         b.iter(|| {
             let mut program = Program::new();
 
-            program
-                .author("vndaba")
-                .bin_name("bench")
-                .description("Benchmarks")
-                .version("0.1.0");
+            // program
+            //     .author("vndaba")
+            //     .bin_name("bench")
+            //     .description("Benchmarks")
+            //     .version("0.1.0");
 
-            program
-                .subcommand("empty")
-                .option("-x --extra", "Something extra")
-                .option("-x --extra", "Something extra")
-                .build(program.s());
+            program.subcommand("empty");
         })
     });
 }
