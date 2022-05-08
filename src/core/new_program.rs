@@ -504,63 +504,91 @@ impl<'p> Command<'p> {
 
                 use Event::*;
                 // Output help on all error events
-                self.on(MissingArgument, _output_help_);
-                self.on(OptionMissingArgument, _output_help_);
-                self.on(UnknownCommand, _output_help_);
-                self.on(UnknownOption, _output_help_);
+                meta.emitter.insert_before_all(_output_help_);
             }
 
             // Register listener for unknown commands
             if settings.enable_command_suggestions {
-                self.on(Event::UnknownCommand, |cfg| {
-                    // Suggest command
-                    let prog = cfg.get_program();
-                    let cmd = &cfg.get_args()[0];
+                // Remove default listener to register new default one
+                meta.emitter.rm_lstnrs_with_index(Event::UnknownCommand, -4);
 
-                    if let Some(_ans) = suggest_cmd(&cmd, prog.get_subcommands()) {
-                        // output command suggestion
-                    }
-                })
+                meta.emitter.on(
+                    Event::UnknownCommand,
+                    |cfg| {
+                        println!("Error: {}\n", cfg.get_error_str());
+
+                        // Suggest command
+                        let prog = cfg.get_program();
+                        let cmd = &cfg.get_args()[0];
+
+                        if let Some(ans) = utils::suggest_cmd(&cmd, prog.get_subcommands()) {
+                            // output command suggestion
+                            println!("       Did you mean: `{ans}` ?\n")
+                        }
+                    },
+                    -1,
+                )
             }
         }
     }
 
     pub fn parse(&'p mut self) {
-        let raw_args = env::args().collect::<Vec<_>>();
-        let args = raw_args.iter().map(|a| a.as_str()).collect::<Vec<_>>();
+        let args = env::args().collect::<Vec<_>>();
 
-        self.name = self._get_target_name(args[0]);
+        self.name = self._get_target_name(&args[0]);
         self.cmd_path = vec![self.name.clone()];
 
-        self.__parse(&args[1..]);
+        self.__parse(args[1..].to_vec());
     }
 
     pub fn parse_from(&'p mut self, list: Vec<&str>) {
-        self.__parse(&list[..]);
+        let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        self.__parse(args);
     }
 
-    pub fn get_matches(&'p mut self) {}
+    pub fn get_matches(&'p mut self) -> Result<ParserMatches<'p>, CmderError> {
+        let args = env::args().collect::<Vec<_>>();
+
+        self.name = self._get_target_name(&args[0]);
+        self.cmd_path = vec![self.name.clone()];
+
+        NewParser::parse(self, args, None)
+    }
 
     pub fn get_matches_from(
         &'p mut self,
-        list: &'p [&'p str],
-    ) -> Result<ParserMatches<'p>, CmderError<'p>> {
-        NewParser::parse(self, list, None)
+        list: Vec<&str>,
+    ) -> Result<ParserMatches<'p>, CmderError> {
+        let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        NewParser::parse(self, args, None)
     }
 
     // Others
-    fn suggest_cmd(&self, cmd: &str) -> Option<String> {
-        utils::suggest_cmd(cmd, self.get_subcommands())
-    }
     pub fn output_help(&self) {}
 
     pub fn output_version(&self) {}
 
-    pub fn before_all(&self) {}
+    pub fn before_all(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.insert_before_all(cb)
+        }
+    }
 
-    pub fn before_help(&self) {}
+    pub fn after_all(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.insert_after_all(cb)
+        }
+    }
 
-    pub fn after_all(&self) {}
+    pub fn before_help(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.on(Event::OutputHelp, cb, -1)
+        }
+    }
 
-    pub fn after_help(&self) {}
+    pub fn after_help(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.on(Event::OutputHelp, cb, 1)
+        }
+    }
 }
