@@ -29,10 +29,11 @@ impl Program {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Command<'static> {
         Command {
-            flags: vec![
-                NewFlag::new("-h", "--help", "Print out help information"),
-                NewFlag::new("-v", "--version", "Print out version information"),
-            ],
+            flags: vec![NewFlag::new(
+                "-v",
+                "--version",
+                "Print out version information",
+            )],
             metadata: Some(CmdMetadata::default()),
             ..Command::new("")
         }
@@ -112,7 +113,7 @@ impl<'p> Command<'p> {
             alias: None,
             arguments: vec![],
             description: "",
-            flags: vec![],
+            flags: vec![NewFlag::new("-h", "--help", "Print out help information")],
             options: vec![],
             subcommands: vec![],
             callback: |_m| {},
@@ -186,6 +187,10 @@ impl<'p> Command<'p> {
         &self.flags
     }
 
+    pub fn get_description(&self) -> &str {
+        self.description
+    }
+
     pub fn get_options(&self) -> &Vec<NewOption> {
         &self.options
     }
@@ -212,7 +217,16 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
     }
 
-    fn _get_target_name(&self, val: &str) -> String {
+    pub fn get_command(&self, val: &str) -> Option<&Command<'_>> {
+        if self.name == val || self.alias == Some(val) {
+            return Some(self);
+        }
+        self.subcommands
+            .iter()
+            .find(|c| c.get_name() == val || c.get_alias() == Some(val))
+    }
+
+    fn _get_target_name(&self, val: &String) -> String {
         if self.name.is_empty() {
             if cfg!(windows) {
                 let path_buff: Vec<&str> = val.split('\\').collect();
@@ -283,18 +297,18 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn option(&mut self, val: &'p str, desc: &'p str) -> &mut Self {
+    pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
 
         match values.len() {
             2 => {
-                let flag = NewFlag::new(values[0], values[1], desc);
+                let flag = NewFlag::new(values[0], values[1], help);
                 if !self.flags.contains(&flag) {
                     self.flags.push(flag)
                 }
             }
             val if val > 2 => {
-                let option = NewOption::new(values[0], values[1], desc, &values[2..]);
+                let option = NewOption::new(values[0], values[1], help, &values[2..]);
                 if !self.options.contains(&option) {
                     self.options.push(option)
                 }
@@ -308,7 +322,7 @@ impl<'p> Command<'p> {
     // Settings
     pub fn on(&mut self, event: Event, cb: NewListener) {
         if let Some(meta) = &mut self.metadata {
-            meta.emitter.on(event, cb);
+            meta.emitter.on(event, cb, 0);
         }
     }
 
