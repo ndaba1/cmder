@@ -337,14 +337,15 @@ impl<'p> Command<'p> {
 
             use Setting::*;
             match setting {
-                EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
-                HideCommandAliases(hide) => s.hide_command_aliases = hide,
-                SeparateOptionsAndFlags(separate) => s.separate_options_and_flags = separate,
-                ShowHelpOnError(show) => s.show_help_on_error = show,
                 ChoosePredefinedTheme(theme) => match theme {
                     PredefinedThemes::Plain => meta.theme = Theme::plain(),
                     PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
                 },
+                EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
+                HideCommandAliases(hide) => s.hide_command_aliases = hide,
+                SeparateOptionsAndFlags(separate) => s.separate_options_and_flags = separate,
+                ShowHelpOnAllErrors(show) => s.show_help_on_all_errors = show,
+                ShowHelpOnEmptyArgs(show) => s.show_help_on_empty_args = show,
                 DefineCustomTheme(theme) => meta.theme = theme,
                 SetProgramPattern(pattern) => meta.pattern = pattern,
                 OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
@@ -411,14 +412,19 @@ impl<'p> Command<'p> {
                         .set_event(Event::OptionMissingArgument),
                     UnknownCommand(cmd) => shared_cfg
                         .arg_c(1)
-                        .args(vec![cmd.to_string()])
+                        .args(vec![cmd])
                         .exit_code(15)
                         .set_event(Event::UnknownCommand),
                     UnknownOption(opt) => shared_cfg
                         .arg_c(1)
-                        .args(vec![opt.to_string()])
+                        .args(vec![opt])
                         .exit_code(20)
                         .set_event(Event::UnknownOption),
+                    UnresolvedArgument(vals) => shared_cfg
+                        .arg_c(vals.len())
+                        .args(vals)
+                        .exit_code(25)
+                        .set_event(Event::UnresolvedArgument),
                 };
 
                 self.emit(event_cfg);
@@ -427,26 +433,45 @@ impl<'p> Command<'p> {
     }
 
     fn __init(&mut self) {
+        // FIXME: No clones
         let parent = self.clone();
+
+        if !self.subcommands.is_empty() {
+            self.subcommand("help")
+                .argument("<SUB-COMMAND>", "The subcommand to print out help info for")
+                .description("A subcommand used for printing out help")
+                .action(|m| {
+                    let cmd = m.get_matched_cmd().unwrap();
+                    let val = m.get_arg("<SUB-COMMAND>").unwrap();
+                    let parent = cmd.get_parent().unwrap();
+
+                    if let Some(cmd) = parent.find_subcommand(&val) {
+                        cmd.output_help();
+                    }
+                })
+                .build();
+        }
 
         for cmd in &mut self.subcommands {
             // Set the cmd_path
-            let mut temp = self.cmd_path.clone();
-            temp.extend_from_slice(&cmd.cmd_path[..]);
-            cmd.cmd_path = temp;
+            // let mut temp = self.cmd_path.clone();
+            // temp.extend_from_slice(&cmd.cmd_path[..]);
+            // cmd.cmd_path = temp;
 
             // Set the parent
+            // FIXME: No clones
             cmd.parent = Some(Box::new(parent.clone()));
         }
 
         // Means that it is the root_cmd(program)
         if let Some(meta) = &mut self.metadata {
             let settings = &meta.settings;
+            let emitter = &mut meta.emitter;
 
             // Register default listeners
             if !settings.override_all_default_listeners {
                 // Default behavior for errors is to print the error message
-                meta.emitter.on_all(
+                emitter.on_all_errors(
                     |cfg| {
                         let error = cfg.get_error_str();
 
@@ -457,12 +482,10 @@ impl<'p> Command<'p> {
                     -4,
                 );
 
-                // Remove output_help and output_version error listeners since they are not errors
-                meta.emitter.rm_lstnrs_with_index(OutputHelp, -4);
-                meta.emitter.rm_lstnrs_with_index(OutputVersion, -4);
-
                 use Event::*;
-                meta.emitter.on(
+
+                // Register default output version listener
+                emitter.on(
                     OutputVersion,
                     |cfg| {
                         let p = cfg.get_program();
@@ -474,25 +497,14 @@ impl<'p> Command<'p> {
                     -4,
                 );
 
-                if settings.events_to_override.contains(&MissingArgument) {
-                    meta.emitter.rm_lstnrs_with_index(MissingArgument, -4)
-                }
-                if settings.events_to_override.contains(&OptionMissingArgument) {
-                    meta.emitter.rm_lstnrs_with_index(OptionMissingArgument, -4)
-                }
-                if settings.events_to_override.contains(&UnknownCommand) {
-                    meta.emitter.rm_lstnrs_with_index(UnknownCommand, -4)
-                }
-                if settings.events_to_override.contains(&UnknownOption) {
-                    meta.emitter.rm_lstnrs_with_index(UnknownOption, -4)
-                }
-                if settings.events_to_override.contains(&OutputVersion) {
-                    meta.emitter.rm_lstnrs_with_index(OutputVersion, -4)
+                // Remove default listeners if behavior set to override
+                for event in &settings.events_to_override {
+                    emitter.rm_lstnr_idx(*event, -4)
                 }
             }
 
             // Register help listeners
-            if settings.show_help_on_error {
+            if settings.show_help_on_all_errors {
                 let _output_help_ = |cfg: EventConfig| {
                     let prog = cfg.get_program();
 
@@ -511,7 +523,7 @@ impl<'p> Command<'p> {
             // Register listener for unknown commands
             if settings.enable_command_suggestions {
                 // Remove default listener to register new default one
-                meta.emitter.rm_lstnrs_with_index(Event::UnknownCommand, -4);
+                meta.emitter.rm_lstnr_idx(Event::UnknownCommand, -4);
 
                 meta.emitter.on(
                     Event::UnknownCommand,
@@ -522,7 +534,7 @@ impl<'p> Command<'p> {
                         let prog = cfg.get_program();
                         let cmd = &cfg.get_args()[0];
 
-                        if let Some(ans) = utils::suggest_cmd(&cmd, prog.get_subcommands()) {
+                        if let Some(ans) = utils::suggest_cmd(cmd, prog.get_subcommands()) {
                             // output command suggestion
                             println!("       Did you mean: `{ans}` ?\n")
                         }
