@@ -154,16 +154,7 @@ impl NewEventEmitter {
 
     pub(crate) fn insert_before_all(&mut self, cb: NewListener) {
         match self.listeners.len() {
-            0 => {
-                use Event::*;
-
-                self.on(MissingArgument, cb, -1);
-                self.on(OptionMissingArgument, cb, -1);
-                self.on(OutputHelp, cb, -1);
-                self.on(OutputVersion, cb, -1);
-                self.on(UnknownCommand, cb, -1);
-                self.on(UnknownOption, cb, -1);
-            }
+            0 => self.on_all(cb, -5),
             _ => {
                 for lstnr in self.listeners.clone() {
                     self.on(lstnr.0, cb, -1); // Insert before all listeners
@@ -174,19 +165,31 @@ impl NewEventEmitter {
 
     pub(crate) fn insert_after_all(&mut self, cb: NewListener) {
         match self.listeners.len() {
-            0 => {
-                use Event::*;
-
-                self.on(MissingArgument, cb, 1);
-                self.on(OptionMissingArgument, cb, 1);
-                self.on(OutputHelp, cb, 1);
-                self.on(OutputVersion, cb, 1);
-                self.on(UnknownCommand, cb, 1);
-                self.on(UnknownOption, cb, 1);
-            }
+            0 => self.on_all(cb, 5),
             _ => {
                 for lstnr in self.listeners.clone() {
                     self.on(lstnr.0, cb, 1); // Insert after all listeners
+                }
+            }
+        }
+    }
+
+    pub(crate) fn on_all(&mut self, cb: NewListener, pstn: i32) {
+        use Event::*;
+
+        self.on(MissingArgument, cb, pstn);
+        self.on(OptionMissingArgument, cb, pstn);
+        self.on(OutputHelp, cb, pstn);
+        self.on(OutputVersion, cb, pstn);
+        self.on(UnknownCommand, cb, pstn);
+        self.on(UnknownOption, cb, pstn);
+    }
+
+    pub(crate) fn rm_lstnrs_with_index(&mut self, event: Event, val: i32) {
+        if let Some(lstnrs) = self.listeners.get_mut(&event) {
+            for (idx, lstnr) in lstnrs.clone().iter().enumerate() {
+                if lstnr.1 == val {
+                    lstnrs.remove(idx);
                 }
             }
         }
