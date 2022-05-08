@@ -13,7 +13,8 @@ pub struct ParserMatches<'pm> {
     pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
     pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
     pub(crate) arg_matches: Vec<ArgsMatches>,
-    pub(crate) positional_options: &'pm [&'pm str],
+    pub(crate) ignored_options: Vec<String>,
+    pub(crate) marked_args: Vec<(String, i32)>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -39,6 +40,10 @@ impl<'o> OptionsMatches<'o> {
             cursor_index: 0,
             option: NewOption::default(),
         }
+    }
+
+    pub(crate) fn contains_option(&self, option: &str) -> bool {
+        self.option.long_version == option || self.option.short_version == option
     }
 }
 
@@ -77,7 +82,8 @@ impl<'a> ParserMatches<'a> {
             matched_subcmd: None,
             arg_matches: vec![],
             option_matches: vec![],
-            positional_options: &[],
+            ignored_options: vec![],
+            marked_args: vec![],
         }
     }
 
@@ -87,6 +93,23 @@ impl<'a> ParserMatches<'a> {
 
     pub fn get_matched_cmd(&self) -> Option<&'a Command<'a>> {
         self.matched_subcmd
+    }
+
+    pub fn get_raw_args(&self) -> Vec<String> {
+        let mut args = vec![];
+
+        for arg in self.arg_matches.iter() {
+            args.push(arg.raw_value.clone());
+        }
+
+        args
+    }
+
+    pub fn get_arg(&self, val: &str) -> Option<String> {
+        self.arg_matches
+            .iter()
+            .find(|arg| arg.instance_of == val)
+            .map(|a| a.raw_value.clone())
     }
 
     pub fn get_arg_count(&self) -> usize {
