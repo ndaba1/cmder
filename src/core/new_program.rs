@@ -559,7 +559,7 @@ impl<'p> Command<'p> {
         self.__parse(args);
     }
 
-    pub fn get_matches(&'p mut self) -> Result<ParserMatches<'p>, CmderError> {
+    pub fn get_matches(&'p mut self) -> CmderResult<ParserMatches<'p>> {
         let args = env::args().collect::<Vec<_>>();
 
         self.name = self._get_target_name(&args[0]);
@@ -568,18 +568,15 @@ impl<'p> Command<'p> {
         NewParser::parse(self, args, None)
     }
 
-    pub fn get_matches_from(
-        &'p mut self,
-        list: Vec<&str>,
-    ) -> Result<ParserMatches<'p>, CmderError> {
+    pub fn get_matches_from(&'p mut self, list: Vec<&str>) -> CmderResult<ParserMatches<'p>> {
         let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
         NewParser::parse(self, args, None)
     }
 
     // Others
-    pub fn output_help(&self) {}
-
-    pub fn output_version(&self) {}
+    pub fn output_help(&self) {
+        println!("Output help called on cmd: {}", self.get_name())
+    }
 
     pub fn before_all(&mut self, cb: NewListener) {
         if let Some(meta) = &mut self.metadata {
