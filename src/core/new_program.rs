@@ -16,8 +16,9 @@ use crate::{
 
 use super::{
     super::parse::flags::{NewFlag, NewOption},
+    errors::CmderResult,
     events::{EventConfig, NewEventEmitter},
-    settings::{NewProgramSettings, Setting},
+    settings::{InternalSettings, Setting},
 };
 use super::{events::NewListener, ProgramSettings};
 
@@ -63,7 +64,7 @@ pub struct CmdMetadata<'a> {
     theme: Theme,
     pattern: Pattern,
     emitter: NewEventEmitter,
-    settings: NewProgramSettings,
+    settings: InternalSettings,
 }
 
 impl<'c> CmdMetadata<'c> {
@@ -74,7 +75,7 @@ impl<'c> CmdMetadata<'c> {
             theme: Theme::default(),
             pattern: Pattern::Legacy,
             emitter: NewEventEmitter::default(),
-            settings: NewProgramSettings::default(),
+            settings: InternalSettings::default(),
         }
     }
 }
@@ -107,7 +108,7 @@ impl<'d> Debug for Command<'d> {
 }
 
 impl<'p> Command<'p> {
-    pub(crate) fn new(name: &'p str) -> Self {
+    pub fn new(name: &'p str) -> Self {
         Self {
             name: name.to_string(),
             alias: None,
@@ -226,7 +227,7 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
     }
 
-    fn _get_target_name(&self, val: &String) -> String {
+    fn _get_target_name(&self, val: &str) -> String {
         if self.name.is_empty() {
             if cfg!(windows) {
                 let path_buff: Vec<&str> = val.split('\\').collect();
