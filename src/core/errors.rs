@@ -3,14 +3,14 @@
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub enum CmderError<'err> {
+pub enum CmderError {
     MissingArgument(Vec<String>),       // exit code 1
     OptionMissingArgument(Vec<String>), // exit code 5
-    UnknownCommand(&'err str),          // exit code 10
-    UnknownOption(&'err str),           // exit code 15
+    UnknownCommand(String),             // exit code 10
+    UnknownOption(String),              // exit code 15
 }
 
-impl<'a> Into<String> for CmderError<'a> {
+impl Into<String> for CmderError {
     fn into(self) -> String {
         match self {
             CmderError::MissingArgument(ref val) => {
@@ -33,7 +33,7 @@ impl<'a> Into<String> for CmderError<'a> {
     }
 }
 
-impl<'a> fmt::Display for CmderError<'a> {
+impl<'a> fmt::Display for CmderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let val: String = self.to_owned().into();
         f.write_str(&val)
