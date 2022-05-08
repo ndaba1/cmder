@@ -256,16 +256,13 @@ impl<'p> Command<'p> {
         self.subcommands.push(sub_cmd);
     }
 
-    // fn _add_parent(mut self, parent_cmd: &'p Self) -> Self {
-    //     self.parent = Some(parent_cmd);
-    //     self
-    // }
+    fn _add_parent(&mut self, parent: Self) -> &mut Self {
+        self.parent = Some(Box::new(parent.clone()));
+        self
+    }
 
-    pub fn build(&mut self, cmd_vec: &mut Vec<Self>) {
-        // TODO: Find a way to achieve this without using the build method
+    pub fn build(&mut self) {
         self.__init();
-        // FIXME: No clones
-        cmd_vec.push(self.clone());
     }
 
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
@@ -278,12 +275,13 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn subcommand(&self, name: &'p str) -> Self {
-        Self::new(name)
+    pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
+        self.subcommands.push(Self::new(name));
+        self.subcommands.last_mut().unwrap()
     }
 
-    pub fn argument(&mut self, val: &str, desc: &str) -> &mut Self {
-        let arg = Argument::new(val, Some(desc.to_string()));
+    pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
+        let arg = Argument::new(val, Some(help.to_string()));
 
         if !self.arguments.contains(&arg) {
             self.arguments.push(arg);
