@@ -379,6 +379,14 @@ impl<'p> Command<'p> {
     }
 
     fn __parse(&'p mut self, args: Vec<String>) {
+        if args.is_empty() {
+            // handle empty args
+        }
+
+        // TODO: Change get target name to account for non path-buffer values
+        self.name = self._get_target_name(&args[0]);
+        self.cmd_path = vec![self.name.clone()];
+
         self.__init(); // performance dip here
 
         // FIXME: no clones - performace dip here
@@ -547,30 +555,12 @@ impl<'p> Command<'p> {
 
     pub fn parse(&'p mut self) {
         let args = env::args().collect::<Vec<_>>();
-
-        self.name = self._get_target_name(&args[0]);
-        self.cmd_path = vec![self.name.clone()];
-
-        self.__parse(args[1..].to_vec());
+        self.__parse(args);
     }
 
     pub fn parse_from(&'p mut self, list: Vec<&str>) {
         let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
         self.__parse(args);
-    }
-
-    pub fn get_matches(&'p mut self) -> CmderResult<ParserMatches<'p>> {
-        let args = env::args().collect::<Vec<_>>();
-
-        self.name = self._get_target_name(&args[0]);
-        self.cmd_path = vec![self.name.clone()];
-
-        NewParser::parse(self, args, None)
-    }
-
-    pub fn get_matches_from(&'p mut self, list: Vec<&str>) -> CmderResult<ParserMatches<'p>> {
-        let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
-        NewParser::parse(self, args, None)
     }
 
     // Others
