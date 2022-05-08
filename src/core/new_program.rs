@@ -51,7 +51,7 @@ pub struct Command<'p> {
     description: &'p str,
     parent: Option<Box<Command<'p>>>,
     subcommands: Vec<Command<'p>>,
-    callback: Callback,
+    callbacks: Vec<(Callback, i32)>, // (cb_function, index_of_execution)
     metadata: Option<CmdMetadata<'p>>,
     cmd_path: Vec<String>,
     more_info: &'p str,
@@ -117,7 +117,7 @@ impl<'p> Command<'p> {
             flags: vec![NewFlag::new("-h", "--help", "Print out help information")],
             options: vec![],
             subcommands: vec![],
-            callback: |_m| {},
+            callbacks: vec![],
             metadata: None,
             parent: None,
             cmd_path: vec![name.to_string()],
@@ -227,6 +227,10 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
     }
 
+    fn _get_callbacks(&self) -> &Vec<(Callback, i32)> {
+        &self.callbacks
+    }
+
     fn _get_target_name(&self, val: &str) -> String {
         if self.name.is_empty() {
             if cfg!(windows) {
@@ -292,7 +296,7 @@ impl<'p> Command<'p> {
     }
 
     pub fn action(&mut self, cb: Callback) -> &mut Self {
-        self.callback = cb;
+        self.callbacks.push((cb, 0));
         self
     }
 
@@ -389,16 +393,25 @@ impl<'p> Command<'p> {
 
         self.__init(); // performance dip here
 
-        // FIXME: no clones - performace dip here
-        // let clone = self.clone();
         match NewParser::parse(self, args, None) {
             Ok(matches) => {
-                // self._handle_flags(&matches);
+                let exec_callbacks = |cmd: &Command| {
+                    // FIXME: No clones
+                    let mut cbs = cmd._get_callbacks().clone();
+
+                    // Sort by index
+                    cbs.sort_by(|a, b| a.1.cmp(&b.1));
+
+                    // Execute callbacks
+                    for cb in cbs {
+                        (cb.0)(matches.clone());
+                    }
+                };
 
                 if let Some(sub_cmd) = matches.get_matched_cmd() {
-                    (sub_cmd.callback)(matches);
+                    exec_callbacks(sub_cmd);
                 } else {
-                    (self.callback)(matches);
+                    exec_callbacks(self);
                 }
             }
             Err(e) => {
