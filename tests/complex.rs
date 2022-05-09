@@ -18,8 +18,7 @@ fn test_complex_api() {
         .alias("b")
         .description("Build a docker image from provided context")
         .option("-q --quiet", "Supress output when building")
-        .action(|_m| {})
-        .build();
+        .action(|_m| {});
 
     img_cmd
         .subcommand("prune")
@@ -28,13 +27,11 @@ fn test_complex_api() {
         .option("-a --all", "Remove all unused images")
         .option("-p --port <port-number>", "Prune containers on given ports")
         .description("Remove the provided image or all unused images")
-        .action(prune_cmd_cb)
-        .build();
+        .action(prune_cmd_cb);
 
     img_cmd
         .alias("i")
-        .description("A subcommand housing image functionality")
-        .build();
+        .description("A subcommand housing image functionality");
 
     program.parse_from(vec![
         "complex",
@@ -56,8 +53,7 @@ fn prune_cmd_cb(m: ParserMatches) {
 
     let cmd = cmd.unwrap();
     assert!(cmd.get_parent().is_some());
-    // TODO: Fix this assertion
-    // assert!(cmd.get_parent().unwrap().get_parent().is_some());
+    assert!(cmd.get_parent().unwrap().get_parent().is_some());
     assert!(m.contains_flag("-a"));
 
     assert_eq!(cmd.get_name(), "prune");

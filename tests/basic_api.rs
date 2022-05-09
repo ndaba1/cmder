@@ -20,8 +20,7 @@ fn create_default_program(cb: fn(ParserMatches)) -> Command<'static> {
         .description("A test subcommand")
         .option("-a --all", "Run all the configured tests")
         .option("-q --quiet", "Don't show tests output")
-        .action(cb)
-        .build();
+        .action(cb);
 
     program
 }
