@@ -13,7 +13,7 @@ pub struct ParserMatches<'pm> {
     pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
     pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
     pub(crate) arg_matches: Vec<ArgsMatches>,
-    pub(crate) ignored_options: Vec<String>,
+    pub(crate) positional_args: Vec<String>,
     pub(crate) marked_args: Vec<(String, i32)>,
 }
 
@@ -82,7 +82,7 @@ impl<'a> ParserMatches<'a> {
             matched_subcmd: None,
             arg_matches: vec![],
             option_matches: vec![],
-            ignored_options: vec![],
+            positional_args: vec![],
             marked_args: vec![],
         }
     }
@@ -112,8 +112,21 @@ impl<'a> ParserMatches<'a> {
             .map(|a| a.raw_value.clone())
     }
 
-    pub fn get_arg_count(&self) -> usize {
+    pub fn get_raw_args_count(&self) -> usize {
         self.arg_count
+    }
+
+    pub fn get_instances_of(&self, val: &str) -> Vec<&str> {
+        let mut instances = vec![];
+        for opt_cfg in &self.option_matches {
+            for arg_cfg in &opt_cfg.args {
+                if (arg_cfg.instance_of).as_str() == val {
+                    instances.push((arg_cfg.raw_value).as_str())
+                }
+            }
+        }
+
+        instances
     }
 
     pub fn get_flag(&self, val: &str) -> Option<NewFlag> {
