@@ -266,9 +266,8 @@ impl<'p> Command<'p> {
         self.to_owned()
     }
 
-    pub fn build(&mut self) {
-        self.__init();
-    }
+    #[deprecated(note = "Subcmds now built automatically")]
+    pub fn build(&mut self) {}
 
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
         self.alias = Some(val);
@@ -282,8 +281,8 @@ impl<'p> Command<'p> {
 
     pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
         let parent = Rc::new(self.to_owned());
-        self.subcommands
-            .push(Self::new(name)._add_parent(Rc::clone(&parent)));
+
+        self.subcommands.push(Self::new(name)._add_parent(parent));
         self.subcommands.last_mut().unwrap()
     }
 
@@ -356,6 +355,8 @@ impl<'p> Command<'p> {
                 SetProgramPattern(pattern) => meta.pattern = pattern,
                 OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
                 OverrideSpecificEventListener(event) => s.events_to_override.push(event),
+                AutoIncludeHelpSubcommand(val) => s.auto_include_help_subcommand = val,
+                EnableTreeViewSubcommand(val) => s.enable_tree_view_subcommand = val,
             }
         }
     }
@@ -471,8 +472,14 @@ impl<'p> Command<'p> {
                     if let Some(cmd) = parent.find_subcommand(&val) {
                         cmd.output_help();
                     }
-                })
-                .build();
+                });
+            self.subcommand("tree")
+                .description("A subcommand used for printing out a tree view of the command tree")
+                .action(|m| {
+                    let cmd = m.get_matched_cmd().unwrap();
+
+                    cmd.display_commands_tree();
+                });
         }
 
         // Means that it is the root_cmd(program)
@@ -605,12 +612,9 @@ impl<'p> Command<'p> {
 
         while parent.is_some() {
             empty.push_str("\t");
+            empty.push_str("|");
 
-            let grandparent = parent.unwrap().get_parent();
-            if grandparent.is_some() {
-                empty.push_str("|");
-            }
-            parent = grandparent;
+            parent = parent.unwrap().get_parent();
         }
 
         println!("{}-> {}", &empty, self.get_name());
