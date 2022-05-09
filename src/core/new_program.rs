@@ -611,8 +611,8 @@ impl<'p> Command<'p> {
         let mut parent = self.get_parent();
 
         while parent.is_some() {
-            empty.push_str("\t");
-            empty.push_str("|");
+            empty.push('\t');
+            empty.push('|');
 
             parent = parent.unwrap().get_parent();
         }
