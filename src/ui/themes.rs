@@ -1,7 +1,7 @@
 use termcolor::Color;
 
 /// A simple struct containing the color palette to be used by the formatter when writing to standard output.
-/// It contains varioud fields each referring to a color variant to be used to print a specific value.
+/// It contains various fields each referring to a color variant to be used to print a specific value.
 /// Each of these values can be mapped to values in the `Designation` struct which is simply a fancy way of referring to what role a string value is assigned to.
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -22,7 +22,7 @@ pub struct Theme {
 }
 
 /// This macro eases the work of creating a new theme, instead of creating the theme struct yourself, you can use the macro to do so.
-/// The macro receives a tuple containing all the desired colors. Do note that the order in which you place your colors is important.
+/// The macro receives  all the desired colors. Do note that the order in which you place your colors is important.
 /// 1. Keywords color
 /// 2. Headlines color
 /// 3. Descriptions color
@@ -30,13 +30,13 @@ pub struct Theme {
 /// 5. Others' color
 #[macro_export]
 macro_rules! construct_theme {
-    ($colors:expr) => {
+    ($kw:expr, $hd:expr, $dsc:expr, $err:expr, $othr:expr) => {
         Theme {
-            keyword: $colors.0,
-            headline: $colors.1,
-            description: $colors.2,
-            error: $colors.3,
-            other: $colors.4,
+            keyword: $kw,
+            headline: $hd,
+            description: $dsc,
+            error: $err,
+            other: $othr,
         }
     };
 }
@@ -49,17 +49,17 @@ pub enum PredefinedThemes {
 impl Theme {
     pub fn new() -> Self {
         use Color::*;
-        construct_theme!((Yellow, Cyan, White, Red, White))
+        construct_theme!(Yellow, Cyan, White, Red, White)
     }
 
     pub fn plain() -> Self {
         use Color::*;
-        construct_theme!((White, White, White, Red, White))
+        construct_theme!(White, White, White, Red, White)
     }
 
     pub fn colorful() -> Self {
         use Color::*;
-        construct_theme!((Green, Magenta, Blue, Red, White))
+        construct_theme!(Green, Magenta, Blue, Red, White)
     }
 }
 
