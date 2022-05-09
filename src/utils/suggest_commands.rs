@@ -2,11 +2,11 @@
 
 use std::collections::HashMap;
 
-use crate::parse::Cmd;
+use crate::core::new_program::Command;
 
 const MIN_MATCH_SIZE: i32 = 3;
 
-pub fn suggest(val: &str, list: &[Cmd]) -> Option<String> {
+pub fn suggest_cmd(val: &str, list: &[Command]) -> Option<String> {
     let mut cmd_map = HashMap::new();
 
     for cmd in list {

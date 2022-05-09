@@ -3,41 +3,55 @@
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub enum CmderError<'err> {
-    MissingArgument(Vec<String>),
-    OptionMissingArgument(Vec<String>),
-    UnknownCommand(&'err str),
-    UnknownOption(&'err str),
+pub enum CmderError {
+    MissingArgument(Vec<String>),       // exit code 5
+    OptionMissingArgument(Vec<String>), // exit code 10
+    UnknownCommand(String),             // exit code 15
+    UnknownOption(String),              // exit code 20
+    UnresolvedArgument(Vec<String>),    // exit code 25
 }
 
-impl<'a> fmt::Display for CmderError<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match *self {
-            CmderError::MissingArgument(ref args) => {
-                let arg_string = get_vector_string(args);
-                f.write_fmt(format_args!(
-                    "Missing the following required argument(s): {arg_string}"
-                ))
+pub type CmderResult<T, E = CmderError> = Result<T, E>;
+
+impl From<CmderError> for String {
+    fn from(err: CmderError) -> Self {
+        use CmderError::*;
+        match err {
+            MissingArgument(ref val) => {
+                let arg_string = get_vector_string(val);
+                format!("Missing the following required argument(s): {arg_string}")
             }
-            CmderError::OptionMissingArgument(ref args) => f.write_fmt(format_args!(
-                "Missing required argument(s): {} for option: {}",
-                args[0], args[1]
-            )),
-            CmderError::UnknownOption(ref opt) => {
-                f.write_fmt(format_args!("You have passed an unknown option: {opt}"))
+            OptionMissingArgument(ref args) => {
+                format!(
+                    "Missing required argument(s): `{}` for option: `{}`",
+                    args[0], args[1]
+                )
             }
-            CmderError::UnknownCommand(ref cmd) => {
-                f.write_fmt(format_args!("Could not find command: {cmd}"))
+            UnknownCommand(cmd) => {
+                format!("Could not find command: `{cmd}`")
             }
-            _ => f.write_str("An error occurred"),
+            UnknownOption(opt) => {
+                format!("You have passed an unknown option: `{opt}`")
+            }
+            UnresolvedArgument(ref vals) => {
+                let arg_string = get_vector_string(vals);
+                format!("Could not resolve the following argument(s): {arg_string}")
+            }
         }
+    }
+}
+
+impl<'a> fmt::Display for CmderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let val: String = self.to_owned().into();
+        f.write_str(&val)
     }
 }
 
 fn get_vector_string(args: &Vec<String>) -> String {
     let mut res = String::new();
     for a in args {
-        res.push_str(a.as_str());
+        res.push_str(&format!("`{a}`"));
         res.push(' ');
     }
 

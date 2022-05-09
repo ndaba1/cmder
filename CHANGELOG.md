@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added support for multiple option values being passed
+
+### Removed
+
+- The .build() function is no longer required
+
 ## [0.5.1] - 2022-04-21
 
 ### Added

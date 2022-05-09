@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{cell::RefCell, collections::HashMap, env, fmt::Debug, rc::Rc};
 
 use crate::{
     core::errors::CmderError,
@@ -10,12 +10,15 @@ use crate::{
         parser::NewParser,
         resolve_flag, Argument, Flag,
     },
+    utils::{self, suggest_cmd},
     Event, Pattern, PredefinedThemes, Theme,
 };
 
 use super::{
     super::parse::flags::{NewFlag, NewOption},
+    errors::CmderResult,
     events::{EventConfig, NewEventEmitter},
+    settings::{InternalSettings, Setting},
 };
 use super::{events::NewListener, ProgramSettings};
 
@@ -27,10 +30,11 @@ impl Program {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Command<'static> {
         Command {
-            flags: vec![
-                NewFlag::new("-h", "--help", "Print out help information"),
-                NewFlag::new("-v", "--version", "Print out version information"),
-            ],
+            flags: vec![NewFlag::new(
+                "-v",
+                "--version",
+                "Print out version information",
+            )],
             metadata: Some(CmdMetadata::default()),
             ..Command::new("")
         }
@@ -45,9 +49,9 @@ pub struct Command<'p> {
     flags: Vec<NewFlag<'p>>,
     options: Vec<NewOption<'p>>,
     description: &'p str,
-    parent: Option<Box<Command<'p>>>,
+    parent: Option<Rc<Command<'p>>>,
     subcommands: Vec<Command<'p>>,
-    callback: Callback,
+    callbacks: Vec<(Callback, i32)>, // (cb_function, index_of_execution)
     metadata: Option<CmdMetadata<'p>>,
     cmd_path: Vec<String>,
     more_info: &'p str,
@@ -60,7 +64,7 @@ pub struct CmdMetadata<'a> {
     theme: Theme,
     pattern: Pattern,
     emitter: NewEventEmitter,
-    settings: ProgramSettings,
+    settings: InternalSettings,
 }
 
 impl<'c> CmdMetadata<'c> {
@@ -71,7 +75,7 @@ impl<'c> CmdMetadata<'c> {
             theme: Theme::default(),
             pattern: Pattern::Legacy,
             emitter: NewEventEmitter::default(),
-            settings: ProgramSettings::default(),
+            settings: InternalSettings::default(),
         }
     }
 }
@@ -104,16 +108,16 @@ impl<'d> Debug for Command<'d> {
 }
 
 impl<'p> Command<'p> {
-    pub(crate) fn new(name: &'p str) -> Self {
+    pub fn new(name: &'p str) -> Self {
         Self {
             name: name.to_string(),
             alias: None,
             arguments: vec![],
             description: "",
-            flags: vec![],
+            flags: vec![NewFlag::new("-h", "--help", "Print out help information")],
             options: vec![],
             subcommands: vec![],
-            callback: |_m| {},
+            callbacks: vec![],
             metadata: None,
             parent: None,
             cmd_path: vec![name.to_string()],
@@ -184,6 +188,10 @@ impl<'p> Command<'p> {
         &self.flags
     }
 
+    pub fn get_description(&self) -> &str {
+        self.description
+    }
+
     pub fn get_options(&self) -> &Vec<NewOption> {
         &self.options
     }
@@ -200,7 +208,7 @@ impl<'p> Command<'p> {
         &mut self.subcommands
     }
 
-    pub fn get_parent(&self) -> Option<&Box<Self>> {
+    pub fn get_parent(&self) -> Option<&Rc<Self>> {
         self.parent.as_ref()
     }
 
@@ -208,6 +216,19 @@ impl<'p> Command<'p> {
         self.subcommands
             .iter()
             .find(|c| c.get_name() == val || c.get_alias() == Some(val))
+    }
+
+    pub fn get_command(&self, val: &str) -> Option<&Command<'_>> {
+        if self.name == val || self.alias == Some(val) {
+            return Some(self);
+        }
+        self.subcommands
+            .iter()
+            .find(|c| c.get_name() == val || c.get_alias() == Some(val))
+    }
+
+    fn _get_callbacks(&self) -> &Vec<(Callback, i32)> {
+        &self.callbacks
     }
 
     fn _get_target_name(&self, val: &str) -> String {
@@ -240,17 +261,13 @@ impl<'p> Command<'p> {
         self.subcommands.push(sub_cmd);
     }
 
-    // fn _add_parent(mut self, parent_cmd: &'p Self) -> Self {
-    //     self.parent = Some(parent_cmd);
-    //     self
-    // }
-
-    pub fn build(&mut self, cmd_vec: &mut Vec<Self>) {
-        // TODO: Find a way to achieve this without using the build method
-        self.__init();
-        // FIXME: No clones
-        cmd_vec.push(self.clone());
+    fn _add_parent(&mut self, parent: Rc<Self>) -> Self {
+        self.parent = Some(parent);
+        self.to_owned()
     }
+
+    #[deprecated(note = "Subcmds now built automatically")]
+    pub fn build(&mut self) {}
 
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
         self.alias = Some(val);
@@ -262,12 +279,15 @@ impl<'p> Command<'p> {
         self
     }
 
-    pub fn subcommand(&self, name: &'p str) -> Self {
-        Self::new(name)
+    pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
+        let parent = Rc::new(self.to_owned());
+
+        self.subcommands.push(Self::new(name)._add_parent(parent));
+        self.subcommands.last_mut().unwrap()
     }
 
-    pub fn argument(&mut self, val: &str, desc: &str) -> &mut Self {
-        let arg = Argument::new(val, Some(desc.to_string()));
+    pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
+        let arg = Argument::new(val, Some(help.to_string()));
 
         if !self.arguments.contains(&arg) {
             self.arguments.push(arg);
@@ -277,22 +297,22 @@ impl<'p> Command<'p> {
     }
 
     pub fn action(&mut self, cb: Callback) -> &mut Self {
-        self.callback = cb;
+        self.callbacks.push((cb, 0));
         self
     }
 
-    pub fn option(&mut self, val: &'p str, desc: &'p str) -> &mut Self {
+    pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
 
         match values.len() {
             2 => {
-                let flag = NewFlag::new(values[0], values[1], desc);
+                let flag = NewFlag::new(values[0], values[1], help);
                 if !self.flags.contains(&flag) {
                     self.flags.push(flag)
                 }
             }
             val if val > 2 => {
-                let option = NewOption::new(values[0], values[1], desc, &values[2..]);
+                let option = NewOption::new(values[0], values[1], help, &values[2..]);
                 if !self.options.contains(&option) {
                     self.options.push(option)
                 }
@@ -306,7 +326,7 @@ impl<'p> Command<'p> {
     // Settings
     pub fn on(&mut self, event: Event, cb: NewListener) {
         if let Some(meta) = &mut self.metadata {
-            meta.emitter.on(event, cb);
+            meta.emitter.on(event, cb, 0);
         }
     }
 
@@ -316,24 +336,28 @@ impl<'p> Command<'p> {
         }
     }
 
-    pub fn set_theme(&mut self, theme: PredefinedThemes) {
+    pub fn set(&mut self, setting: Setting) {
         if let Some(meta) = &mut self.metadata {
-            match theme {
-                PredefinedThemes::Plain => meta.theme = Theme::plain(),
-                PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
+            let s = &mut meta.settings;
+
+            use Setting::*;
+            match setting {
+                ChoosePredefinedTheme(theme) => match theme {
+                    PredefinedThemes::Plain => meta.theme = Theme::plain(),
+                    PredefinedThemes::Colorful => meta.theme = Theme::colorful(),
+                },
+                EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
+                HideCommandAliases(hide) => s.hide_command_aliases = hide,
+                SeparateOptionsAndFlags(separate) => s.separate_options_and_flags = separate,
+                ShowHelpOnAllErrors(show) => s.show_help_on_all_errors = show,
+                ShowHelpOnEmptyArgs(show) => s.show_help_on_empty_args = show,
+                DefineCustomTheme(theme) => meta.theme = theme,
+                SetProgramPattern(pattern) => meta.pattern = pattern,
+                OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
+                OverrideSpecificEventListener(event) => s.events_to_override.push(event),
+                AutoIncludeHelpSubcommand(val) => s.auto_include_help_subcommand = val,
+                EnableTreeViewSubcommand(val) => s.enable_tree_view_subcommand = val,
             }
-        }
-    }
-
-    pub fn set_pattern(&mut self, ptrn: Pattern) {
-        if let Some(meta) = &mut self.metadata {
-            meta.pattern = ptrn;
-        }
-    }
-
-    pub fn define_custom_theme(&mut self, theme: Theme) {
-        if let Some(meta) = &mut self.metadata {
-            meta.theme = theme;
         }
     }
 
@@ -357,25 +381,47 @@ impl<'p> Command<'p> {
                 .program(program.clone());
 
             self.emit(cfg);
-            self.output_version();
             std::process::exit(0);
         }
     }
 
-    fn __parse(&'p mut self, args: &[&str]) {
-        self.__init();
+    fn __parse(&'p mut self, args: Vec<String>) {
+        if args.is_empty() {
+            // handle empty args
+            return;
+        }
 
-        match NewParser::parse(self, args, None) {
+        // TODO: Change get target name to account for non path-buffer values
+        self.name = self._get_target_name(&args[0]);
+        self.cmd_path = vec![self.name.clone()];
+
+        self.__init(); // performance dip here
+
+        match NewParser::parse(self, args[1..].to_vec(), None) {
             Ok(matches) => {
+                let exec_callbacks = |cmd: &Command| {
+                    // FIXME: No clones
+                    let mut cbs = cmd._get_callbacks().clone();
+
+                    // Sort by index
+                    cbs.sort_by(|a, b| a.1.cmp(&b.1));
+
+                    // Execute callbacks
+                    for cb in cbs {
+                        (cb.0)(matches.clone());
+                    }
+                };
+
                 if let Some(sub_cmd) = matches.get_matched_cmd() {
-                    (sub_cmd.callback)(matches);
+                    exec_callbacks(sub_cmd);
                 } else {
-                    dbg!(matches);
+                    exec_callbacks(self);
                 }
             }
             Err(e) => {
-                eprintln!("{e}");
-                let shared_cfg = EventConfig::default().program(self.clone());
+                let shared_cfg = EventConfig::default()
+                    .program(self.clone())
+                    .error_str(e.clone().into());
 
                 use CmderError::*;
                 let event_cfg = match e {
@@ -391,75 +437,190 @@ impl<'p> Command<'p> {
                         .set_event(Event::OptionMissingArgument),
                     UnknownCommand(cmd) => shared_cfg
                         .arg_c(1)
-                        .args(vec![cmd.to_string()])
+                        .args(vec![cmd])
                         .exit_code(15)
                         .set_event(Event::UnknownCommand),
                     UnknownOption(opt) => shared_cfg
                         .arg_c(1)
-                        .args(vec![opt.to_string()])
+                        .args(vec![opt])
                         .exit_code(20)
                         .set_event(Event::UnknownOption),
+                    UnresolvedArgument(vals) => shared_cfg
+                        .arg_c(vals.len())
+                        .args(vals)
+                        .exit_code(25)
+                        .set_event(Event::UnresolvedArgument),
                 };
 
-                self.emit(event_cfg.clone());
-                std::process::exit(event_cfg.get_exit_code() as i32);
+                self.emit(event_cfg);
             }
         }
     }
 
     fn __init(&mut self) {
-        let parent = self.clone();
+        if !self.subcommands.is_empty() {
+            // Add help subcommand
+            // TODO: Check settings for help command
+            self.subcommand("help")
+                .argument("<SUB-COMMAND>", "The subcommand to print out help info for")
+                .description("A subcommand used for printing out help")
+                .action(|m| {
+                    let cmd = m.get_matched_cmd().unwrap();
+                    let val = m.get_arg("<SUB-COMMAND>").unwrap();
+                    let parent = cmd.get_parent().unwrap();
 
-        for cmd in &mut self.subcommands {
-            // Set the cmd_path
-            let mut temp = self.cmd_path.clone();
-            temp.extend_from_slice(&cmd.cmd_path[..]);
-            cmd.cmd_path = temp;
+                    if let Some(cmd) = parent.find_subcommand(&val) {
+                        cmd.output_help();
+                    }
+                });
+            self.subcommand("tree")
+                .description("A subcommand used for printing out a tree view of the command tree")
+                .action(|m| {
+                    let cmd = m.get_matched_cmd().unwrap();
 
-            // Set the parent
-            cmd.parent = Some(Box::new(parent.clone()));
+                    cmd.display_commands_tree();
+                });
         }
 
-        if let Some(meta) = &self.metadata {
-            // Means that it is the root_cmd(program)
-            self.on(Event::UnknownCommand, |_cfg| {
-                // Suggest commands functionality
-            })
+        // Means that it is the root_cmd(program)
+        if let Some(meta) = &mut self.metadata {
+            let settings = &meta.settings;
+            let emitter = &mut meta.emitter;
+
+            // Register default listeners
+            if !settings.override_all_default_listeners {
+                // Default behavior for errors is to print the error message
+                emitter.on_all_errors(
+                    |cfg| {
+                        let error = cfg.get_error_str();
+
+                        if !error.is_empty() {
+                            eprintln!("Error: {error}");
+                        }
+                    },
+                    -4,
+                );
+
+                use Event::*;
+
+                // Register default output version listener
+                emitter.on(
+                    OutputVersion,
+                    |cfg| {
+                        let p = cfg.get_program();
+
+                        println!("{}, v{}", p.get_name(), p.get_version());
+                        println!("{}", p.get_author());
+                        println!("{}", p.get_description());
+                    },
+                    -4,
+                );
+
+                // Remove default listeners if behavior set to override
+                for event in &settings.events_to_override {
+                    emitter.rm_lstnr_idx(*event, -4)
+                }
+            }
+
+            // Register help listeners
+            if settings.show_help_on_all_errors {
+                let _output_help_ = |cfg: EventConfig| {
+                    let prog = cfg.get_program();
+
+                    if let Some(cmd) = cfg.get_matched_cmd() {
+                        cmd.output_help()
+                    } else {
+                        prog.output_help()
+                    }
+                };
+
+                use Event::*;
+                // Output help on all error events
+                meta.emitter.insert_before_all(_output_help_);
+            }
+
+            // Register listener for unknown commands
+            if settings.enable_command_suggestions {
+                // Remove default listener to register new default one
+                meta.emitter.rm_lstnr_idx(Event::UnknownCommand, -4);
+
+                meta.emitter.on(
+                    Event::UnknownCommand,
+                    |cfg| {
+                        println!("Error: {}\n", cfg.get_error_str());
+
+                        // Suggest command
+                        let prog = cfg.get_program();
+                        let cmd = &cfg.get_args()[0];
+
+                        if let Some(ans) = utils::suggest_cmd(cmd, prog.get_subcommands()) {
+                            // output command suggestion
+                            println!("       Did you mean: `{ans}` ?\n")
+                        }
+                    },
+                    -1,
+                )
+            }
         }
     }
 
     pub fn parse(&'p mut self) {
-        let raw_args: Vec<_> = std::env::args().collect();
-        let mut cleaned_args = vec![];
-
-        for a in &raw_args {
-            cleaned_args.push(a.as_str());
-        }
-
-        self.name = self._get_target_name(&raw_args[0]);
-        self.cmd_path = vec![self.name.clone()];
-
-        self.__parse(&cleaned_args[1..]);
+        let args = env::args().collect::<Vec<_>>();
+        self.__parse(args);
     }
 
     pub fn parse_from(&'p mut self, list: Vec<&str>) {
-        self.__parse(&list[..]);
+        let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        self.__parse(args);
     }
 
-    pub fn get_matches(&mut self) {}
-
-    pub fn get_matches_from(&mut self, list: Vec<&str>) {}
-
     // Others
-    pub fn output_help(&self) {}
+    pub fn output_help(&self) {
+        println!("Output help called on cmd: {}", self.get_name())
+    }
 
-    pub fn output_version(&self) {}
+    pub fn before_all(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.insert_before_all(cb)
+        }
+    }
 
-    pub fn before_all(&self) {}
+    pub fn after_all(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.insert_after_all(cb)
+        }
+    }
 
-    pub fn before_help(&self) {}
+    pub fn before_help(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.on(Event::OutputHelp, cb, -1)
+        }
+    }
 
-    pub fn after_all(&self) {}
+    pub fn after_help(&mut self, cb: NewListener) {
+        if let Some(meta) = &mut self.metadata {
+            meta.emitter.on(Event::OutputHelp, cb, 1)
+        }
+    }
 
-    pub fn after_help(&self) {}
+    // Debug utilities
+    pub fn display_commands_tree(&self) {
+        let mut commands = self.get_subcommands();
+        let mut empty = String::new();
+
+        let mut parent = self.get_parent();
+
+        while parent.is_some() {
+            empty.push('\t');
+            empty.push('|');
+
+            parent = parent.unwrap().get_parent();
+        }
+
+        println!("{}-> {}", &empty, self.get_name());
+
+        for cmd in commands.iter() {
+            cmd.display_commands_tree();
+        }
+    }
 }

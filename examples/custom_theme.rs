@@ -16,7 +16,7 @@ fn main() {
 
     // You can use the `construct_theme` macro and play around with the colors
     use Color::*;
-    program.set_custom_theme(construct_theme!((Green, Magenta, Blue, Red, White)));
+    program.set_custom_theme(construct_theme!(Green, Magenta, Blue, Red, White));
 
     // You could also construct the theme manually
     program.set_custom_theme(Theme {

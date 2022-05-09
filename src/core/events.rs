@@ -3,10 +3,11 @@ use std::{collections::HashMap, fmt::Debug};
 
 use super::{new_program::Command, Program};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EventConfig<'e> {
     args: Vec<String>,
     arg_count: usize,
+    error_string: String,
     exit_code: usize,
     event_type: Event,
     matched_cmd: Option<&'e Command<'e>>,
@@ -32,6 +33,10 @@ impl<'a> EventConfig<'a> {
         self.exit_code
     }
 
+    pub fn get_error_str(&self) -> &str {
+        self.error_string.as_str()
+    }
+
     pub fn get_matched_cmd(&self) -> Option<&Command<'a>> {
         self.matched_cmd
     }
@@ -49,6 +54,11 @@ impl<'a> EventConfig<'a> {
 
     pub fn exit_code(mut self, code: usize) -> Self {
         self.exit_code = code;
+        self
+    }
+
+    pub fn error_str(mut self, val: String) -> Self {
+        self.error_string = val;
         self
     }
 
@@ -77,6 +87,7 @@ impl<'d> Default for EventConfig<'d> {
     fn default() -> Self {
         Self {
             additional_info: "",
+            error_string: "".into(),
             arg_count: 0,
             args: vec![],
             event_type: Event::OutputHelp,
@@ -91,7 +102,7 @@ pub type NewListener = fn(EventConfig) -> ();
 
 #[derive(Clone)]
 pub struct NewEventEmitter {
-    listeners: HashMap<Event, Vec<NewListener>>,
+    listeners: HashMap<Event, Vec<(NewListener, i32)>>,
 }
 
 impl Debug for NewEventEmitter {
@@ -107,18 +118,20 @@ impl NewEventEmitter {
         }
     }
 
-    pub fn on(&mut self, event: Event, cb: NewListener) {
+    pub fn on(&mut self, event: Event, cb: NewListener, pstn: i32) {
         match self.listeners.get(&event) {
             Some(lstnrs) => {
                 let mut temp = vec![];
 
-                temp.extend_from_slice(&lstnrs[..]);
-                temp.push(cb);
+                for l in lstnrs {
+                    temp.push((l.0, l.1));
+                }
+                temp.push((cb, pstn));
 
                 self.listeners.insert(event, temp);
             }
             None => {
-                self.listeners.insert(event, vec![cb]);
+                self.listeners.insert(event, vec![(cb, pstn)]);
             }
         };
     }
@@ -127,11 +140,64 @@ impl NewEventEmitter {
         let event = cfg.get_event();
 
         if let Some(lstnrs) = self.listeners.get(&event) {
-            for cb in lstnrs {
+            let mut lstnrs = lstnrs.clone();
+
+            lstnrs.sort_by(|a, b| a.1.cmp(&b.1));
+
+            for (cb, idx) in lstnrs.iter() {
                 cb(cfg.clone());
             }
 
             std::process::exit(cfg.get_exit_code() as i32);
+        }
+    }
+
+    pub(crate) fn insert_before_all(&mut self, cb: NewListener) {
+        match self.listeners.len() {
+            0 => self.on_all(cb, -5),
+            _ => {
+                for lstnr in self.listeners.clone() {
+                    self.on(lstnr.0, cb, -5); // Insert before all listeners
+                }
+            }
+        }
+    }
+
+    pub(crate) fn insert_after_all(&mut self, cb: NewListener) {
+        match self.listeners.len() {
+            0 => self.on_all(cb, 5),
+            _ => {
+                for lstnr in self.listeners.clone() {
+                    self.on(lstnr.0, cb, 5); // Insert after all listeners
+                }
+            }
+        }
+    }
+
+    pub(crate) fn on_all(&mut self, cb: NewListener, pstn: i32) {
+        use Event::*;
+
+        self.on(OutputHelp, cb, pstn);
+        self.on(OutputVersion, cb, pstn);
+        self.on_all_errors(cb, pstn)
+    }
+
+    pub(crate) fn on_all_errors(&mut self, cb: NewListener, pstn: i32) {
+        use Event::*;
+
+        self.on(MissingArgument, cb, pstn);
+        self.on(OptionMissingArgument, cb, pstn);
+        self.on(UnknownCommand, cb, pstn);
+        self.on(UnknownOption, cb, pstn);
+    }
+
+    pub(crate) fn rm_lstnr_idx(&mut self, event: Event, val: i32) {
+        if let Some(lstnrs) = self.listeners.get_mut(&event) {
+            for (idx, lstnr) in lstnrs.clone().iter().enumerate() {
+                if lstnr.1 == val {
+                    lstnrs.remove(idx);
+                }
+            }
         }
     }
 }
@@ -155,8 +221,6 @@ pub struct EventEmitter {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
-    EmptyArguments,
-
     /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
     MissingArgument,
@@ -180,6 +244,8 @@ pub enum Event {
 
     /// This occurs when an unknown flag or option is passed to the program, the value passed to the callback being the unknown option and also overrides the default program behavior.
     UnknownOption,
+
+    UnresolvedArgument,
 }
 
 impl EventEmitter {
