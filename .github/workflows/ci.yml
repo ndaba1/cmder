@@ -17,13 +17,27 @@ jobs:
       - name: "Setup Rust environment"
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt
+           profile: minimal
+           toolchain: stable
+           override: true
+           components: rustfmt, clippy
 
-      - run: cargo fmt --all -- --check
-      - run: cargo build
-      - run: cargo test
+      - uses: actions-rs/cargo@v1
+        name: Unit Test
+        with:
+          command: test
+
+      - uses: actions-rs/cargo@v1
+        name: Format Check
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - uses: actions-rs/cargo@v1
+        name: Clippy
+        with:
+          command: clippy
+          args: -- -D warnings
+
 
  
