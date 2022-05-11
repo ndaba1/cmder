@@ -1,4 +1,4 @@
-use cmder::Program;
+use cmder::{ParserMatches, Program};
 
 fn main() {
     let mut program = Program::new();
@@ -9,27 +9,29 @@ fn main() {
         .bin_name("demo");
 
     program
-        .command("greet <name>")
+        .subcommand("greet")
+        .argument("<name>", "Pass the name to say hello to")
         .alias("g")
         .description("Simply greets the provided name")
-        .option("-d --default", "Override the provided name")
         .option("-c --custom <GREETING...>", "Pass a custom greeting to use")
-        .action(|values, options| {
-            let mut name = values.get("name").unwrap().as_str();
-
-            let greeting = if options.contains_key("GREETING") {
-                options.get("GREETING").unwrap().to_owned()
-            } else {
-                String::from("Ahoy!")
-            };
-
-            if options.contains_key("default") {
-                name = "Kemosabe";
-            }
-
-            println!("{} {}", greeting, name);
-        })
-        .build(&mut program);
+        .action(cmd::greet_cb);
 
     program.parse();
+}
+
+mod cmd {
+    use super::*;
+
+    pub fn greet_cb(m: ParserMatches) {
+        // we can safely unwrap the value since it it required and an error would have been thrown if no value was provided
+        let name = m.get_arg("<name>").unwrap();
+
+        let mut greeting = "Ahoy!".to_owned();
+        // Check if any args for <GREETING> exist
+        if let Some(custom_grtng) = m.get_option_arg("<GREETING...>") {
+            greeting = custom_grtng;
+        }
+
+        println!("{greeting} {name}");
+    }
 }
