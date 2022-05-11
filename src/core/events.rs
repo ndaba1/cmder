@@ -1,7 +1,7 @@
 #![allow(unused)]
 use std::{collections::HashMap, fmt::Debug};
 
-use super::{new_program::Command, Program};
+use super::program::Command;
 
 #[derive(Clone, Debug)]
 pub struct EventConfig<'e> {
@@ -98,27 +98,27 @@ impl<'d> Default for EventConfig<'d> {
     }
 }
 
-pub type NewListener = fn(EventConfig) -> ();
+pub type EventListener = fn(EventConfig) -> ();
 
 #[derive(Clone)]
-pub struct NewEventEmitter {
-    listeners: HashMap<Event, Vec<(NewListener, i32)>>,
+pub struct EventEmitter {
+    listeners: HashMap<Event, Vec<(EventListener, i32)>>,
 }
 
-impl Debug for NewEventEmitter {
+impl Debug for EventEmitter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{:#?}", self.listeners.keys()))
     }
 }
 
-impl NewEventEmitter {
+impl EventEmitter {
     pub fn new() -> Self {
         Self {
             listeners: HashMap::new(),
         }
     }
 
-    pub fn on(&mut self, event: Event, cb: NewListener, pstn: i32) {
+    pub fn on(&mut self, event: Event, cb: EventListener, pstn: i32) {
         match self.listeners.get(&event) {
             Some(lstnrs) => {
                 let mut temp = vec![];
@@ -152,7 +152,7 @@ impl NewEventEmitter {
         }
     }
 
-    pub(crate) fn insert_before_all(&mut self, cb: NewListener) {
+    pub(crate) fn insert_before_all(&mut self, cb: EventListener) {
         match self.listeners.len() {
             0 => self.on_all(cb, -5),
             _ => {
@@ -163,7 +163,7 @@ impl NewEventEmitter {
         }
     }
 
-    pub(crate) fn insert_after_all(&mut self, cb: NewListener) {
+    pub(crate) fn insert_after_all(&mut self, cb: EventListener) {
         match self.listeners.len() {
             0 => self.on_all(cb, 5),
             _ => {
@@ -174,7 +174,7 @@ impl NewEventEmitter {
         }
     }
 
-    pub(crate) fn on_all(&mut self, cb: NewListener, pstn: i32) {
+    pub(crate) fn on_all(&mut self, cb: EventListener, pstn: i32) {
         use Event::*;
 
         self.on(OutputHelp, cb, pstn);
@@ -182,10 +182,10 @@ impl NewEventEmitter {
         self.on_all_errors(cb, pstn)
     }
 
-    pub(crate) fn on_all_errors(&mut self, cb: NewListener, pstn: i32) {
+    pub(crate) fn on_all_errors(&mut self, cb: EventListener, pstn: i32) {
         use Event::*;
 
-        self.on(MissingArgument, cb, pstn);
+        self.on(MissingRequiredArgument, cb, pstn);
         self.on(OptionMissingArgument, cb, pstn);
         self.on(UnknownCommand, cb, pstn);
         self.on(UnknownOption, cb, pstn);
@@ -202,28 +202,17 @@ impl NewEventEmitter {
     }
 }
 
-impl Default for NewEventEmitter {
+impl Default for EventEmitter {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// A simple type to be used to pass callbacks to the .action() method on a command.
-type Listener = fn(&Program, String) -> ();
-
-#[derive(Clone)]
-/// The EventEmitter strPartialEq, Eq, Hash, uct holds all functionality for emitting and receiving all events occurring in the program.
-/// It contains only a single field being the listeners themselves.
-pub struct EventEmitter {
-    /// The listeners field is simply a hashmap with keys containing Event variants and the values containing a vector of listeners. Whenever an event is emitted, The listeners hashmap is queried for any callbacks for the said event and if any are found, then they are executed sequentially.
-    listeners: HashMap<Event, Vec<Listener>>,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
     /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
     /// The callbacks set override the default behavior
-    MissingArgument,
+    MissingRequiredArgument,
 
     /// This is similar to the `MissingArgument` argument variant except it occurs when the missing argument is for an option. The string value passed is the name of the missing argument.
     ///The callbacks set override the default behavior
@@ -246,53 +235,4 @@ pub enum Event {
     UnknownOption,
 
     UnresolvedArgument,
-}
-
-impl EventEmitter {
-    pub fn new() -> Self {
-        Self {
-            listeners: HashMap::new(),
-        }
-    }
-
-    /// Receives an event and the actual listener to be set then matches on the listener and adds to the listener to its desired vector.
-    pub fn on(&mut self, event: Event, callback: Listener) {
-        self._add_listener(event, callback);
-    }
-
-    /// This method is called when events in the program occur. It simply checks for any listeners and then executes them in a sequential manner.
-    pub fn emit(&self, program: &Program, event: Event, param: String) {
-        if self.listeners.contains_key(&event) {
-            let callbacks = self.listeners.get(&event).unwrap();
-            for cb in callbacks {
-                cb(program, param.clone())
-            }
-            std::process::exit(1)
-        }
-    }
-
-    /// This method retrives the vector of existing callbacks if any and pushes the new listener to the vector
-    fn _add_listener(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
-        let existing = self.listeners.get(&event);
-
-        match existing {
-            Some(values) => {
-                let mut new_cbs = vec![];
-                for cb in values.clone() {
-                    new_cbs.push(cb)
-                }
-                new_cbs.push(callback);
-                self.listeners.insert(event, new_cbs);
-            }
-            None => {
-                self.listeners.insert(event, vec![callback]);
-            }
-        }
-    }
-}
-
-impl Default for EventEmitter {
-    fn default() -> Self {
-        Self::new()
-    }
 }
