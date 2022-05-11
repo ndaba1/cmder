@@ -1,9 +1,11 @@
 #![allow(unused)]
 
+use crate::ui::formatter::FormatGenerator;
+
 use super::args::Argument;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NewOption<'op> {
+pub struct CmderOption<'op> {
     pub short_version: &'op str,
     pub long_version: &'op str,
     pub arguments: Vec<Argument>,
@@ -11,13 +13,13 @@ pub struct NewOption<'op> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NewFlag<'f> {
+pub struct CmderFlag<'f> {
     pub short_version: &'f str,
     pub long_version: &'f str,
     pub description: &'f str,
 }
 
-impl<'a> NewFlag<'a> {
+impl<'a> CmderFlag<'a> {
     pub(crate) fn new(short: &'a str, long: &'a str, desc: &'a str) -> Self {
         Self {
             short_version: short,
@@ -27,13 +29,13 @@ impl<'a> NewFlag<'a> {
     }
 }
 
-impl<'d> Default for NewFlag<'d> {
+impl<'d> Default for CmderFlag<'d> {
     fn default() -> Self {
         Self::new("", "", "")
     }
 }
 
-impl<'b> NewOption<'b> {
+impl<'b> CmderOption<'b> {
     pub(crate) fn new(short: &'b str, long: &'b str, desc: &'b str, args: &[&str]) -> Self {
         let mut arguments = vec![];
         for a in args.iter() {
@@ -49,7 +51,7 @@ impl<'b> NewOption<'b> {
     }
 }
 
-impl<'d> Default for NewOption<'d> {
+impl<'d> Default for CmderOption<'d> {
     fn default() -> Self {
         Self {
             short_version: "",
@@ -60,122 +62,124 @@ impl<'d> Default for NewOption<'d> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Flag {
-    /// A short version of the switch/flag, usually begins with a single hyphen, such as -h
-    pub short: String,
+pub(crate) fn resolve_new_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag<'f>> {
+    let mut flag = None;
 
-    /// The full/long version of the switch, usually begins with double hyphens, ie. --help
-    pub long: String,
-
-    /// Any parameters that the switch accepts, or requires
-    pub params: Vec<Argument>,
-
-    /// A description of the flag and the inputs its accepts
-    pub docstring: String,
-}
-
-impl Flag {
-    pub fn new(body: &str, desc: &str) -> Self {
-        let chunks: Vec<_> = body.split(' ').collect();
-        let chunks: Vec<_> = chunks.iter().map(|c| c.trim().to_string()).collect();
-
-        // If the length is more than two it means that params have been passed
-        let params = if chunks.len() > 2 {
-            chunks[2..]
-                .to_vec()
-                .iter()
-                .map(|v| Argument::new(v, None))
-                .collect()
-        } else {
-            vec![]
-        };
-
-        Self {
-            short: chunks[0].clone(),
-            long: chunks[1].clone(),
-            params,
-            docstring: desc.trim().to_string(),
+    let val = val.as_str();
+    for f in list {
+        if f.short_version == val || f.long_version == val {
+            flag = Some(f.clone());
         }
     }
+    flag
+}
 
-    pub fn get_matches(
-        &self,
-        idx: usize,
-        raw_args: &[String],
-    ) -> Result<Option<(String, String)>, (String, String)> {
-        // assuming raw_args look something like exe test -a -p 1 -x
-        let max_len = self.params.len();
-        let cleaned = self.long.replace("--", "").replace('-', "_");
-        let mut result = Some((cleaned, "true".to_string()));
+pub(crate) fn resolve_new_option<'o>(
+    list: &'o [CmderOption],
+    val: String,
+) -> Option<CmderOption<'o>> {
+    let mut flag = None;
 
-        for (i, val) in self.params.iter().enumerate() {
-            let step = i + 1;
+    let val = val.as_str();
+    for f in list {
+        if f.short_version == val || f.long_version == val {
+            flag = Some(f.clone());
+        }
+    }
+    flag
+}
 
-            if val.variadic {
-                let mut value = String::new();
-                for (index, arg) in raw_args.iter().enumerate() {
-                    if index >= idx && !arg.starts_with('-') {
-                        value.push_str(arg);
-                        value.push(' ')
-                    }
+impl<'f> FormatGenerator for CmderFlag<'f> {
+    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        use crate::ui::formatter::Pattern;
+        match &ptrn {
+            Pattern::Custom(ptrn) => {
+                let base = &ptrn.flags_fmter;
+
+                let mut floating = String::from("");
+                let mut leading = base
+                    .replace("{{short}}", self.short_version)
+                    .replace("{{long}}", self.long_version);
+
+                if leading.contains("{{description}}") {
+                    leading = leading.replace("{{description}}", self.description);
+                } else {
+                    floating = self.description.into()
                 }
-                result = Some((val.name.clone(), value.trim().to_string()))
-            } else if i <= max_len {
-                // try to any args input values
-                match raw_args.get(idx + step) {
-                    Some(v) => {
-                        result = if val.required {
-                            Some((val.name.clone(), v.clone()))
-                        } else {
-                            // do some custom logic to see if value should be added
-                            None
-                        };
-                    }
-                    None => {
-                        if val.required {
-                            return Err((val.literal.clone(), raw_args[idx].clone()));
-                        }
-                    }
-                }
+
+                (leading, floating)
+            }
+            _ => {
+                let short: String = if !self.short_version.is_empty() {
+                    self.short_version.into()
+                } else {
+                    "  ".into()
+                };
+                (
+                    format!("{}, {}", short, self.long_version),
+                    self.description.into(),
+                )
             }
         }
-
-        Ok(result)
     }
 }
 
-pub fn resolve_flag(list: &[Flag], val: &str) -> Option<Flag> {
-    let mut flag = None;
+impl<'f> FormatGenerator for CmderOption<'f> {
+    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        use crate::ui::formatter::Pattern;
+        match &ptrn {
+            Pattern::Custom(ptrn) => {
+                let base = &ptrn.flags_fmter;
 
-    for f in list {
-        if f.short == val || f.long == val {
-            flag = Some(f.clone());
+                let mut floating = String::from("");
+                let mut leading = base
+                    .replace("{{short}}", self.short_version)
+                    .replace("{{long}}", self.long_version);
+
+                if base.contains("{{args}}") && !self.arguments.is_empty() {
+                    let mut value = String::new();
+
+                    for a in &self.arguments {
+                        value.push_str(&(a.literal));
+                        value.push(' ');
+                    }
+
+                    leading = leading.replace("{{args}}", value.trim());
+                }
+
+                if base.contains("{{description}}") {
+                    leading = leading.replace("{{description}}", self.description);
+                } else {
+                    floating = self.description.into()
+                }
+
+                (leading, floating)
+            }
+            _ => {
+                let short: String = if self.short_version.is_empty() {
+                    self.short_version.into()
+                } else {
+                    "  ".into()
+                };
+
+                let args = if !self.arguments.is_empty() {
+                    let mut raw = String::new();
+
+                    for a in &self.arguments {
+                        raw.push_str(&(a.literal));
+                        raw.push(' ');
+                    }
+
+                    raw
+                } else {
+                    "".into()
+                };
+
+                (
+                    format!("{}, {} {}", short, self.long_version, args),
+                    self.description.into(),
+                )
+            }
         }
     }
-    flag
-}
-
-pub(crate) fn resolve_new_flag<'f>(list: &'f [NewFlag], val: String) -> Option<NewFlag<'f>> {
-    let mut flag = None;
-
-    let val = val.as_str();
-    for f in list {
-        if f.short_version == val || f.long_version == val {
-            flag = Some(f.clone());
-        }
-    }
-    flag
-}
-
-pub(crate) fn resolve_new_option<'o>(list: &'o [NewOption], val: String) -> Option<NewOption<'o>> {
-    let mut flag = None;
-
-    let val = val.as_str();
-    for f in list {
-        if f.short_version == val || f.long_version == val {
-            flag = Some(f.clone());
-        }
-    }
-    flag
 }
