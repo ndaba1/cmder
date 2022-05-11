@@ -7,14 +7,12 @@ use super::flags::{NewFlag, NewOption};
 #[derive(Debug, Clone)]
 pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
-    pub(crate) cursor_offset: usize,
     pub(crate) root_cmd: &'pm Command<'pm>,
-    pub(crate) matched_subcmd: Option<&'pm Command<'pm>>,
+    pub(crate) matched_cmd: Option<&'pm Command<'pm>>,
     pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
     pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
     pub(crate) arg_matches: Vec<ArgsMatches>,
     pub(crate) positional_args: Vec<String>,
-    pub(crate) marked_args: Vec<(String, i32)>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -76,14 +74,12 @@ impl<'a> ParserMatches<'a> {
     pub(crate) fn new(count: usize, root_cmd: &'a Command<'a>) -> Self {
         Self {
             arg_count: count,
-            cursor_offset: 0,
             flag_matches: vec![],
             root_cmd,
-            matched_subcmd: None,
+            matched_cmd: None,
             arg_matches: vec![],
             option_matches: vec![],
             positional_args: vec![],
-            marked_args: vec![],
         }
     }
 
@@ -92,7 +88,7 @@ impl<'a> ParserMatches<'a> {
     }
 
     pub fn get_matched_cmd(&self) -> Option<&'a Command<'a>> {
-        self.matched_subcmd
+        self.matched_cmd
     }
 
     pub fn get_raw_args(&self) -> Vec<String> {
