@@ -1,24 +1,17 @@
-#![allow(dead_code)]
 #![allow(unused)]
-
-use std::{cell::RefCell, collections::HashMap, env, fmt::Debug, rc::Rc};
+use std::{env, fmt::Debug, rc::Rc};
 
 use crate::{
     core::errors::CmderError,
-    parse::{
-        matches::{FlagsMatches, ParserMatches},
-        parser::Parser,
-        resolve_flag, Argument, Flag,
-    },
-    ui::formatter::{CustomPattern, FormatGenerator},
-    utils::{self, suggest_cmd, HelpWriter},
+    parse::{matches::ParserMatches, parser::Parser, Argument},
+    ui::formatter::FormatGenerator,
+    utils::{self, HelpWriter},
     Event, Pattern, PredefinedThemes, Theme,
 };
 
 use super::events::EventListener;
 use super::{
-    super::parse::flags::{NewFlag, NewOption},
-    errors::CmderResult,
+    super::parse::flags::{CmderFlag, CmderOption},
     events::{EventConfig, EventEmitter},
     settings::{ProgramSettings, Setting},
 };
@@ -32,8 +25,8 @@ impl Program {
     pub fn new() -> Command<'static> {
         Command {
             flags: vec![
-                NewFlag::new("-v", "--version", "Print out version information"),
-                NewFlag::new("-h", "--help", "Print out help information"),
+                CmderFlag::new("-v", "--version", "Print out version information"),
+                CmderFlag::new("-h", "--help", "Print out help information"),
             ],
             is_root: true,
             ..Command::new("")
@@ -51,8 +44,8 @@ pub struct Command<'p> {
     author: Option<&'p str>,
     version: Option<&'p str>,
     arguments: Vec<Argument>,
-    flags: Vec<NewFlag<'p>>,
-    options: Vec<NewOption<'p>>,
+    flags: Vec<CmderFlag<'p>>,
+    options: Vec<CmderOption<'p>>,
     description: Option<&'p str>,
     more_info: Option<&'p str>,
     usage_str: Option<&'p str>,
@@ -85,7 +78,7 @@ impl<'p> Command<'p> {
             alias: None,
             arguments: vec![],
             description: None,
-            flags: vec![NewFlag::new("-h", "--help", "Print out help information")],
+            flags: vec![CmderFlag::new("-h", "--help", "Print out help information")],
             options: vec![],
             subcommands: vec![],
             callbacks: vec![],
@@ -145,7 +138,7 @@ impl<'p> Command<'p> {
         self.alias.unwrap_or("")
     }
 
-    pub fn get_flags(&self) -> &Vec<NewFlag> {
+    pub fn get_flags(&self) -> &Vec<CmderFlag> {
         &self.flags
     }
 
@@ -153,7 +146,7 @@ impl<'p> Command<'p> {
         self.description.unwrap_or("")
     }
 
-    pub fn get_options(&self) -> &Vec<NewOption> {
+    pub fn get_options(&self) -> &Vec<CmderOption> {
         &self.options
     }
 
@@ -274,13 +267,13 @@ impl<'p> Command<'p> {
 
         match values.len() {
             2 => {
-                let flag = NewFlag::new(values[0], values[1], help);
+                let flag = CmderFlag::new(values[0], values[1], help);
                 if !self.flags.contains(&flag) {
                     self.flags.push(flag)
                 }
             }
             val if val > 2 => {
-                let option = NewOption::new(values[0], values[1], help, &values[2..]);
+                let option = CmderOption::new(values[0], values[1], help, &values[2..]);
                 if !self.options.contains(&option) {
                     self.options.push(option)
                 }
@@ -597,8 +590,7 @@ impl<'p> Command<'p> {
 }
 
 impl<'f> FormatGenerator for Command<'f> {
-    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
-        use crate::ui::formatter::Pattern;
+    fn generate(&self, ptrn: Pattern) -> (String, String) {
         match &ptrn {
             Pattern::Custom(ptrn) => {
                 let base = &ptrn.sub_cmds_fmter;
