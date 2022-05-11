@@ -1,3 +1,5 @@
+use crate::ui::formatter::FormatGenerator;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Argument {
     /// Sets the name of the argument. The name is what actually gets returned in the resulting hashmaps once the arguments are parsed. It is in a rust-friendly format, that is, all the leading hyphens are removed and any other hyphens replaced with underscores
@@ -69,4 +71,30 @@ fn clean_arg(val: &str) -> (String, bool, bool) {
     };
 
     (name, required, variadic)
+}
+
+impl FormatGenerator for Argument {
+    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        use crate::ui::formatter::Pattern;
+        match &ptrn {
+            Pattern::Custom(ptrn) => {
+                let base = &ptrn.args_fmter;
+
+                let mut floating = String::from("");
+                let mut leading = base
+                    .replace("{{name}}", &self.name)
+                    .replace("{{literal}}", &self.literal);
+
+                if base.contains("{{description}}") {
+                    leading =
+                        leading.replace("{{description}}", &self.description.clone().unwrap());
+                } else {
+                    floating = self.description.clone().unwrap()
+                }
+
+                (leading, floating)
+            }
+            _ => (self.name.clone(), self.description.clone().unwrap()),
+        }
+    }
 }
