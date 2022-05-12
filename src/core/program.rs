@@ -323,15 +323,16 @@ impl<'p> Command<'p> {
 
     // Parser
     fn _handle_flags(&mut self, matches: &ParserMatches) {
+        let cmd = matches.get_matched_cmd().unwrap();
         let program = matches.get_program();
 
-        if let Some(_f) = matches.get_flag("-h") {
+        if matches.contains_flag("-h") {
             let cfg = EventConfig::default().program(program.clone());
 
-            self.output_help();
+            cmd.output_help();
             self.emit(cfg);
             std::process::exit(0);
-        } else if let Some(_f) = matches.get_flag("-v") {
+        } else if matches.contains_flag("-v") && cmd.is_root {
             let version = program.get_version();
 
             let cfg = EventConfig::default()
@@ -346,20 +347,24 @@ impl<'p> Command<'p> {
     }
 
     fn __parse(&'p mut self, args: Vec<String>) {
-        if args.is_empty() {
-            // handle empty args
-            return;
+        if args.is_empty() || args.len() <= 1 {
+            self.output_help();
         }
 
         // TODO: Change get target name to account for non path-buffer values
         self.name = self._get_target_name(&args[0]);
 
+        // TODO: Rewrite this functionality
         self.__init(); // performance dip here
 
-        let mut parser = Parser::new(self);
+        // FIXME: Seriously fix this section
+        let clone = self.clone();
+        let mut parser = Parser::new(&clone);
 
         match parser.parse(args[1..].to_vec()) {
             Ok(matches) => {
+                self._handle_flags(&matches);
+
                 let exec_callbacks = |cmd: &Command| {
                     // FIXME: No clones
                     let mut cbs = cmd._get_callbacks().clone();
@@ -376,7 +381,7 @@ impl<'p> Command<'p> {
                 if let Some(sub_cmd) = matches.get_matched_cmd() {
                     exec_callbacks(sub_cmd);
                 } else {
-                    exec_callbacks(self);
+                    return;
                 }
             }
             Err(e) => {
@@ -536,7 +541,7 @@ impl<'p> Command<'p> {
 
     // Others
     pub fn output_help(&self) {
-        HelpWriter::write(self, self.get_theme().clone(), Pattern::Legacy);
+        HelpWriter::write(self, self.get_theme().clone(), self.get_pattern().clone());
     }
 
     pub fn before_all(&mut self, cb: EventListener) {
@@ -600,6 +605,8 @@ impl<'f> FormatGenerator for Command<'f> {
 
                 if let Some(alias) = self.alias {
                     leading = leading.replace("{{alias}}", alias)
+                } else {
+                    leading = leading.replace("{{alias}}", "")
                 }
 
                 if base.contains("{{args}}") && !self.get_arguments().is_empty() {
