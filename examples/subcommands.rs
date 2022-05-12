@@ -31,6 +31,7 @@ fn main() {
 
     img_cmd
         .subcommand("build")
+        .argument("<path>", "The path to the build context")
         .alias("b")
         .option("-q --quiet", "Supress output when building")
         .description("Build a docker image from provided context")
@@ -38,6 +39,7 @@ fn main() {
 
     img_cmd
         .subcommand("prune")
+        .argument("<image-name>", "The name of the image to prune")
         .alias("p")
         .option("-a --all", "Remove all unused images")
         .description("Remove the provided image or all unused images")
