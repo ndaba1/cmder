@@ -21,7 +21,7 @@ pub struct Argument {
 impl Argument {
     /// Takes in a string literal as input and returns a new argument instance after resolving all the struct fields of an argument by calling the `clean_arg` function.
     pub fn new(value: &str, description: Option<String>) -> Self {
-        let (name, required, variadic) = clean_arg(value);
+        let (name, required, variadic) = clean_arg(value.trim());
 
         Self {
             name,
@@ -94,7 +94,7 @@ impl FormatGenerator for Argument {
 
                 (leading, floating)
             }
-            _ => (self.name.clone(), self.description.clone().unwrap()),
+            _ => (self.literal.clone(), self.description.clone().unwrap()),
         }
     }
 }
