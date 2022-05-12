@@ -14,8 +14,13 @@ fn main() {
             dbg!(m);
         });
 
+    program
+        .subcommand("dummy")
+        .alias("dmy")
+        .description("A dummy subcommand to test formatting");
+
     let custom_ptrn = CustomPattern::new()
-        .args_fmter("{{name}}: {{description}}")
+        .args_fmter("{{name}}: ")
         .flags_fmter("{{short}} or {{long}}:")
         .options_fmter("{{short}} or {{long}}: {{args}}")
         .sub_cmds_fmter("({{name}} | {{alias}})")
