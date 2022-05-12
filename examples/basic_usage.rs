@@ -6,7 +6,8 @@ fn main() {
     program
         .author("vndaba")
         .description("A simple demo cli")
-        .bin_name("demo");
+        .bin_name("demo")
+        .version("0.1.0");
 
     program
         .subcommand("greet")
