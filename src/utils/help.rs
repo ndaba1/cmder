@@ -29,12 +29,13 @@ impl<'help> HelpWriter<'help> {
         fmter.add(Other, " [OPTIONS]");
 
         if has_args {
-            fmter.add(Other, " [ARGS]");
+            fmter.add(Other, " <ARGS>");
         }
 
         if has_subcmds {
-            fmter.add(Other, " <SUBCOMMAND>\n");
+            fmter.add(Other, " <SUBCOMMAND>");
         }
+        fmter.close();
 
         if has_args {
             fmter.section("ARGS");
