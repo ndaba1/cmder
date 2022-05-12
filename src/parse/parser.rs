@@ -65,7 +65,6 @@ impl<'p> Parser<'p> {
                     // Parse any args following option
                     self.parse_option(opt, args[(cursor_index + 1)..].to_vec())?
                 } else if arg.contains("=") && !self.allow_trailing_values {
-                    self.marked_args[cursor_index].1 = true;
                     // Split the arg into key and value
                     let parts = arg.split('=').collect::<Vec<_>>();
 
@@ -97,11 +96,9 @@ impl<'p> Parser<'p> {
                     return Err(CmderError::UnresolvedArgument(vec![arg.clone()]));
                 } else {
                     // parse sub_cmd
-                    self.cursor_index += 1;
                     self.parse_cmd(sub_cmd, args[(cursor_index + 1)..].to_vec())?
                 }
             } else if !self.is_marked(cursor_index) {
-                dbg!(&arg);
                 // check if any arguments were expected
                 let arg_cfg = self.parse_args(cmd.get_arguments(), args.clone())?;
 
@@ -170,22 +167,23 @@ impl<'p> Parser<'p> {
 
     // Parse subcmds
     fn parse_cmd(&mut self, cmd: &'p Command<'p>, args: Vec<String>) -> CmderResult<()> {
-        self.marked_args[self.cursor_index].1 = true;
+        self.cursor_index += 1;
         self.parser_cfg.matched_cmd = Some(cmd);
         self.cmd = cmd;
 
         for (i, a) in args.iter().enumerate() {
             if let Some(sc) = cmd.find_subcommand(a) {
+                self.marked_args[(self.cursor_index + i)].1 = true;
                 return self.parse_cmd(sc, args[(i + 1)..].to_vec());
             }
         }
-        let args = self.parse_args(cmd.get_arguments(), args)?;
+        let arg_cfg = self.parse_args(cmd.get_arguments(), args)?;
 
-        if !args.is_empty() {
+        if !arg_cfg.is_empty() {
             self.valid_arg_found = true;
         }
 
-        self.parser_cfg.arg_matches.extend_from_slice(&args[..]);
+        self.parser_cfg.arg_matches.extend_from_slice(&arg_cfg[..]);
 
         Ok(())
     }
@@ -219,7 +217,7 @@ impl<'p> Parser<'p> {
                 // valid to collect arguments
                 match raw_args.iter().enumerate().next() {
                     Some((idx, val)) => {
-                        let full_index = cursor_index + idx + 1;
+                        let full_index = cursor_index + idx;
                         if !self.is_marked(full_index) && !val.starts_with('-') {
                             self.marked_args[full_index].1 = true;
                             raw_value.push_str(val)
@@ -251,4 +249,6 @@ impl<'p> Parser<'p> {
 
         Ok(arg_vec)
     }
+
+    // fn resolve_options(&mut self, args: Vec<String>) {}
 }
