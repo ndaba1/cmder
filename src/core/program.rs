@@ -347,10 +347,6 @@ impl<'p> Command<'p> {
     }
 
     fn __parse(&'p mut self, args: Vec<String>) {
-        if args.is_empty() || args.len() <= 1 {
-            self.output_help();
-        }
-
         // TODO: Change get target name to account for non path-buffer values
         self.name = self._get_target_name(&args[0]);
 
