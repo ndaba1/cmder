@@ -1,4 +1,4 @@
-use cmder::{core::new_program::Program, ParserMatches};
+use cmder::{ParserMatches, Program};
 
 #[test]
 fn test_complex_api() {
@@ -34,19 +34,12 @@ fn test_complex_api() {
         .description("A subcommand housing image functionality");
 
     program.parse_from(vec![
-        "complex",
-        "i",
-        "prune",
-        "image-one",
-        "-a",
-        "-p",
-        "8080",
-        "-p",
-        "5053",
+        "complex", "i", "prune", "cont-one", "-a", "-p=8080", "-p=5053", "--", "ng", "-pre",
     ]);
 }
 
 fn prune_cmd_cb(m: ParserMatches) {
+    dbg!(&m);
     let cmd = m.get_matched_cmd();
 
     assert!(cmd.is_some());
@@ -57,6 +50,7 @@ fn prune_cmd_cb(m: ParserMatches) {
     assert!(m.contains_flag("-a"));
 
     assert_eq!(cmd.get_name(), "prune");
-    assert_eq!(m.get_arg("[image-name]"), Some("image-one".to_string()));
-    assert_eq!(m.get_instances_of("<port-number>"), vec!["8080", "5053"])
+    assert_eq!(m.get_arg("[image-name]"), Some("cont-one".to_string()));
+    assert_eq!(m.get_instances_of("<port-number>"), vec!["8080", "5053"]);
+    assert_eq!(m.get_positional_args(), vec!["ng", "-pre"]);
 }
