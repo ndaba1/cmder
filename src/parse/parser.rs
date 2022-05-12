@@ -43,6 +43,7 @@ impl<'p> Parser<'p> {
         }
 
         self.parser_cfg.arg_count = args.len();
+        self.parser_cfg.matched_cmd = Some(self.cmd);
 
         for (cursor_index, arg) in args.iter().enumerate() {
             let cmd = self.cmd;
@@ -221,6 +222,8 @@ impl<'p> Parser<'p> {
                         if !self.is_marked(full_index) && !val.starts_with('-') {
                             self.marked_args[full_index].1 = true;
                             raw_value.push_str(val)
+                        } else if val == "-h" || val == "--help" {
+                            break;
                         } else if arg_val.required {
                             // return err: expected one value found another
                             let vals = vec![arg_val.literal.clone()];
