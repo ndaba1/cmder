@@ -1,4 +1,4 @@
-## A simple, lightweight and extensible command line argument parser for rust codebases.
+# A simple, lightweight and extensible command line argument parser for rust codebases.
 
 <p align="center" > 
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/ndaba1/cmder/cmder-ci-workflow">
@@ -6,7 +6,11 @@
 <img alt="Crates.io" src="https://img.shields.io/crates/v/cmder">
 </p>
 
-This crate aims to provide you with an easy-to-use and extensible API without compromising the speed and performance that is expected of rust codebases. The syntax of the builder interface can be attributed to the javascript package `commander-js`
+This crate aims to provide you with an easy-to-use and extensible API without compromising the speed and performance that is expected of rust codebases. The syntax of the builder interface can be attributed to the javascript package `commander-js`. To get started, create a new instance of the program and manipulate it as shown.
+
+## A basic example
+
+The following is a basic example on how to use the crate. More in depth documentation can be found from docs.rs or the github repo.
 
 ```rust
 
@@ -18,33 +22,75 @@ program
     .author("Author's name");
 
 program
-    .command("test <app-name>")
+    .subcommand("test <app-name>")
     .alias("t")
     .description("A test command")
     .option("-s --skip", "Skip checking/installing the dependencies")
     .option("-p --priority", "The priority to use when testing apps")
-    .action(|vals, opts| {
-        dbg!(vals);
-        dbg!(opts);
-    })
-    .build(&mut program);
+    .action(|matches| { dbg!(matches); });
+
+// ...
 
 program.parse();
 
 ```
 
-You can also override the default behavior of the program. You can edit the Themes and how information is printed out to stdout as follows:
+## Extending the functionality using event listeners
+
+The default behaviour of the program can be easily extended or even overriden by use of event listeners. View the docs to see all possible events of the program.
 
 ```rust
-program.on(Event::OutputVersion, |p, v| {
-        println!("You are using version {} of my program", v);
-        println!("This program was authored by: {}", p.get_author();
-    });
+//...
+
+program.on(Event::OutputVersion, |config|{
+    let prog_ref = config.get_program();
+    println!("Current program version is: {}", prog_ref.get_version());
+});
+
+program.after_help(|config|{
+    let prog_ref = config.get_program();
+    println!("This program was authored by: {}", prog_ref.get_author());
+});
+
+program.before_all(|config|{
+    println!("An Aram Mojtabai banger!!!😂")
+});
+
+// ...
 ```
 
-Refer to docs.rs for full documentation on the crate. Also check out the repository on github for examples of crate usage [here](https://github.com/ndaba1/cmder/tree/main/examples).
+## Configuring program settings
 
-If you found this crate useful, consider [starring this repo](https://github.com/ndaba1/cmder/stargazers).
+Modify the settings to control the behavior of the program. See the documentation for all possible configurable settings
+
+```rust
+// ...
+
+program.set(Setting::ShowHelpOnAllErrors(true));
+program.set(Setting::ChoosePredefinedTheme(PredefinedThemes::Colorful));
+program.set(Setting::SetProgramPattern(Pattern::Legacy));
+program.set(Setting::OverrideAllDefaultListeners(true));
+
+// ...
+```
+
+## Customizing themes and patterns
+
+You can define your own color pallete to be used when printing to std_out. Also, you can control how the information is printed by use of patterns.
+
+```rust
+// ...
+
+use Color::*;
+program.set(Setting::DefineCustomTheme(construct_theme!(
+    Green, Magenta, Blue, Red, White
+)));
+
+
+// ...
+```
+
+Refer to docs.rs for full documentation on the crate. Also check out the repository on github for examples of crate usage [here](https://github.com/ndaba1/cmder/tree/main/examples). If you found this crate useful, consider [starring this repo](https://github.com/ndaba1/cmder/stargazers).
 
 ## Contributing
 
