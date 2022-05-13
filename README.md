@@ -22,7 +22,8 @@ program
     .author("Author's name");
 
 program
-    .subcommand("test <app-name>")
+    .subcommand("test")
+    .argument("<app-name>", "Pass the name of the app to test")
     .alias("t")
     .description("A test command")
     .option("-s --skip", "Skip checking/installing the dependencies")
@@ -94,4 +95,4 @@ Refer to docs.rs for full documentation on the crate. Also check out the reposit
 
 ## Contributing
 
-All contributions are welcome and highly appreciated!
+Whether you have an awesome color palette to create a new predefined theme, or you wish to add a new use-case to the [examples/](examples) directory, or you have a change that can improve the crate, all contributions are welcome and highly appreciated!
