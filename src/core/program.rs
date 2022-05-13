@@ -589,3 +589,49 @@ impl<'f> FormatGenerator for Command<'f> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_program() {
+        let mut program = Program::new();
+
+        assert!(program.is_root);
+        assert!(program.emitter.is_some());
+        assert!(program.get_flags().len() == 2);
+        assert!(program.get_parent().is_none());
+        assert!(program.get_name().is_empty());
+        assert!(program.get_version().is_empty());
+        assert!(program.get_subcommands().is_empty());
+
+        program
+            .author("vndaba")
+            .bin_name("test1")
+            .version("0.1.0")
+            .argument("<dummy>", "Some dummy value");
+
+        assert_eq!(program.get_author(), "vndaba");
+        assert_eq!(program.get_name(), "test1");
+        assert_eq!(program.get_version(), "0.1.0");
+        assert_eq!(
+            program.get_arguments(),
+            &vec![Argument::new("<dummy>", Some("Some dummy value".into()))]
+        )
+    }
+
+    #[test]
+    fn test_basic_cmd() {
+        let cmd = Command::new("test2");
+
+        assert!(!cmd.is_root);
+        assert!(cmd.emitter.is_none());
+        assert!(cmd.parent.is_none());
+        assert_eq!(cmd.get_name(), "test2");
+        assert_eq!(
+            cmd.get_flags(),
+            &vec![CmderFlag::new("-h", "--help", "Print out help information")]
+        );
+    }
+}
