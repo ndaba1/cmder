@@ -12,7 +12,7 @@ pub struct EventConfig<'e> {
     event_type: Event,
     matched_cmd: Option<&'e Command<'e>>,
     additional_info: &'e str,
-    program_ref: Command<'e>,
+    program_ref: &'e Command<'e>,
 }
 
 impl<'a> EventConfig<'a> {
@@ -26,7 +26,7 @@ impl<'a> EventConfig<'a> {
     }
 
     pub fn get_program(&self) -> &Command<'a> {
-        &self.program_ref
+        self.program_ref
     }
 
     pub fn get_exit_code(&self) -> usize {
@@ -77,14 +77,14 @@ impl<'a> EventConfig<'a> {
         self
     }
 
-    pub fn program(mut self, p_ref: Command<'a>) -> Self {
+    pub fn program(mut self, p_ref: &'a Command<'a>) -> Self {
         self.program_ref = p_ref;
         self
     }
 }
 
-impl<'d> Default for EventConfig<'d> {
-    fn default() -> Self {
+impl<'a> EventConfig<'a> {
+    pub fn new(cmd: &'a Command<'a>) -> Self {
         Self {
             additional_info: "",
             error_string: "".into(),
@@ -93,7 +93,7 @@ impl<'d> Default for EventConfig<'d> {
             event_type: Event::OutputHelp,
             exit_code: 0,
             matched_cmd: None,
-            program_ref: Command::new("none"),
+            program_ref: cmd,
         }
     }
 }
@@ -119,17 +119,8 @@ impl EventEmitter {
     }
 
     pub fn on(&mut self, event: Event, cb: EventListener, pstn: i32) {
-        match self.listeners.get(&event) {
-            Some(lstnrs) => {
-                let mut temp = vec![];
-
-                for l in lstnrs {
-                    temp.push((l.0, l.1));
-                }
-                temp.push((cb, pstn));
-
-                self.listeners.insert(event, temp);
-            }
+        match self.listeners.get_mut(&event) {
+            Some(lstnrs) => lstnrs.push((cb, pstn)),
             None => {
                 self.listeners.insert(event, vec![(cb, pstn)]);
             }
