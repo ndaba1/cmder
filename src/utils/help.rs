@@ -21,7 +21,7 @@ impl<'help> HelpWriter<'help> {
         use Designation::*;
 
         if !cmd.get_description().is_empty() {
-            fmter.add(Description, &format!("\n{}\n", cmd.get_description()));
+            fmter.add(Description, &format!("{}\n", cmd.get_description()));
         }
 
         fmter.section("USAGE");
