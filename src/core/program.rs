@@ -1,5 +1,5 @@
 #![allow(unused)]
-use std::{env, fmt::Debug, rc::Rc};
+use std::{env, fmt::Debug, path::PathBuf, rc::Rc};
 
 use crate::{
     core::errors::CmderError,
@@ -29,6 +29,7 @@ impl Program {
                 CmderFlag::new("-h", "--help", "Print out help information"),
             ],
             is_root: true,
+            emitter: Some(EventEmitter::default()),
             ..Command::new("")
         }
     }
@@ -52,7 +53,7 @@ pub struct Command<'p> {
     settings: ProgramSettings,
     emitter: Option<EventEmitter>,
     subcommands: Vec<Command<'p>>,
-    callbacks: Vec<(Callback, i32)>, // (cb_function, index_of_execution)
+    callback: Option<Callback>, // (cb_function, index_of_execution)
     parent: Option<Rc<Command<'p>>>,
 }
 
@@ -81,14 +82,14 @@ impl<'p> Command<'p> {
             flags: vec![CmderFlag::new("-h", "--help", "Print out help information")],
             options: vec![],
             subcommands: vec![],
-            callbacks: vec![],
+            callback: None,
             parent: None,
             more_info: None,
             version: None,
             author: None,
             theme: Theme::default(),
             pattern: Pattern::Legacy,
-            emitter: Some(EventEmitter::default()),
+            emitter: None,
             settings: ProgramSettings::default(),
             is_root: false,
             usage_str: None,
@@ -162,7 +163,7 @@ impl<'p> Command<'p> {
         self.parent.as_ref()
     }
 
-    pub(crate) fn get_usage_str(&self) -> String {
+    pub fn get_usage_str(&self) -> String {
         let mut parent = self.get_parent();
         let mut usage = vec![self.get_name()];
         let mut usage_str = String::new();
@@ -188,23 +189,13 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == val)
     }
 
-    fn _get_callbacks(&self) -> &Vec<(Callback, i32)> {
-        &self.callbacks
-    }
-
-    fn _get_target_name(&self, val: &str) -> String {
+    fn _set_bin_name(&mut self, val: &str) {
         if self.name.is_empty() {
-            if cfg!(windows) {
-                let path_buff: Vec<&str> = val.split('\\').collect();
-                let target = path_buff.last().unwrap();
-                target.replace(".exe", "")
-            } else {
-                let path_buff: Vec<&str> = val.split('/').collect();
-                let target = path_buff.last().unwrap();
-                target.to_string()
-            }
-        } else {
-            self.name.to_string()
+            let p_buff = PathBuf::from(val);
+
+            if let Some(name) = p_buff.file_name() {
+                self.name = name.to_str().unwrap().into();
+            };
         }
     }
 
@@ -258,7 +249,7 @@ impl<'p> Command<'p> {
     }
 
     pub fn action(&mut self, cb: Callback) -> &mut Self {
-        self.callbacks.push((cb, 0));
+        self.callback = Some(cb);
         self
     }
 
@@ -291,8 +282,8 @@ impl<'p> Command<'p> {
         }
     }
 
-    pub fn emit(&mut self, cfg: EventConfig) {
-        if let Some(emitter) = &mut self.emitter {
+    pub fn emit(&self, cfg: EventConfig) {
+        if let Some(emitter) = &self.emitter {
             emitter.emit(cfg);
         }
     }
@@ -322,68 +313,45 @@ impl<'p> Command<'p> {
     }
 
     // Parser
-    fn _handle_flags(&mut self, matches: &ParserMatches) {
+    fn _handle_root_flags(&self, matches: &ParserMatches) {
         let cmd = matches.get_matched_cmd().unwrap();
         let program = matches.get_program();
 
+        let cfg = EventConfig::new(program);
         if matches.contains_flag("-h") {
-            let cfg = EventConfig::default().program(program.clone());
-
-            cmd.output_help();
-            self.emit(cfg);
-            std::process::exit(0);
+            self.emit(cfg.set_matched_cmd(cmd).set_event(Event::OutputHelp));
         } else if matches.contains_flag("-v") && cmd.is_root {
-            let version = program.get_version();
-
-            let cfg = EventConfig::default()
-                .arg_c(1_usize)
-                .args(vec![version.to_string()])
-                .set_event(Event::OutputVersion)
-                .program(program.clone());
-
-            self.emit(cfg);
-            std::process::exit(0);
+            self.emit(
+                cfg.arg_c(1_usize)
+                    .args(vec![program.get_version().to_string()])
+                    .set_event(Event::OutputVersion),
+            );
         }
     }
 
     fn __parse(&'p mut self, args: Vec<String>) {
-        // TODO: Change get target name to account for non path-buffer values
-        self.name = self._get_target_name(&args[0]);
+        self._set_bin_name(&args[0]);
 
         // TODO: Rewrite this functionality
         self.__init(); // performance dip here
 
-        // FIXME: Seriously fix this section
-        let clone = self.clone();
-        let mut parser = Parser::new(&clone);
+        let mut parser = Parser::new(self);
 
         match parser.parse(args[1..].to_vec()) {
             Ok(matches) => {
-                self._handle_flags(&matches);
+                self._handle_root_flags(&matches);
 
-                let exec_callbacks = |cmd: &Command| {
-                    // FIXME: No clones
-                    let mut cbs = cmd._get_callbacks().clone();
-
-                    // Sort by index
-                    cbs.sort_by(|a, b| a.1.cmp(&b.1));
-
-                    // Execute callbacks
-                    for cb in cbs {
-                        (cb.0)(matches.clone());
+                if let Some(cmd) = matches.get_matched_cmd() {
+                    if let Some(cb) = cmd.callback {
+                        (cb)(matches);
                     }
-                };
-
-                if let Some(sub_cmd) = matches.get_matched_cmd() {
-                    exec_callbacks(sub_cmd);
-                } else {
-                    return;
                 }
             }
             Err(e) => {
-                let shared_cfg = EventConfig::default()
-                    .program(self.clone())
-                    .error_str(e.clone().into());
+                // FIXME: No clones
+                // TODO: Impl into eventcfg from cmdererror
+                let clone = self.clone();
+                let shared_cfg = EventConfig::new(&clone).error_str(e.clone().into());
 
                 use CmderError::*;
                 let event_cfg = match e {
@@ -420,9 +388,8 @@ impl<'p> Command<'p> {
     }
 
     fn __init(&mut self) {
-        if !self.subcommands.is_empty() {
+        if !self.subcommands.is_empty() && self.settings.auto_include_help_subcommand {
             // Add help subcommand
-            // TODO: Check settings for help command
             self.subcommand("help")
                 .argument("<SUB-COMMAND>", "The subcommand to print out help info for")
                 .description("A subcommand used for printing out help")
@@ -435,13 +402,6 @@ impl<'p> Command<'p> {
                         cmd.output_help();
                     }
                 });
-            self.subcommand("tree")
-                .description("A subcommand used for printing out a tree view of the command tree")
-                .action(|m| {
-                    let cmd = m.get_matched_cmd().unwrap();
-
-                    cmd.display_commands_tree();
-                });
         }
 
         // Means that it is the root_cmd(program)
@@ -449,6 +409,13 @@ impl<'p> Command<'p> {
             let settings = &self.settings;
 
             use Event::*;
+
+            emitter.on(
+                OutputHelp,
+                |cfg| cfg.get_matched_cmd().unwrap().output_help(),
+                -4,
+            );
+
             // Register default listeners
             if !settings.override_all_default_listeners {
                 // Default behavior for errors is to print the error message
@@ -457,6 +424,7 @@ impl<'p> Command<'p> {
                         |cfg| {
                             let error = cfg.get_error_str();
 
+                            // TODO: Improve default error handling
                             if !error.is_empty() {
                                 eprintln!("Error: {error}");
                             }
@@ -486,20 +454,13 @@ impl<'p> Command<'p> {
 
             // Register help listeners
             if settings.show_help_on_all_errors && !settings.ignore_all_errors {
-                let _output_help_ = |cfg: EventConfig| {
-                    let prog = cfg.get_program();
-
-                    if let Some(cmd) = cfg.get_matched_cmd() {
-                        cmd.output_help()
-                    } else {
-                        prog.output_help()
-                    }
-                };
+                let _output_help_ = |cfg: EventConfig| cfg.get_matched_cmd().unwrap().output_help();
 
                 // Output help on all error events
                 emitter.insert_before_all(_output_help_);
             }
 
+            // TODO: remove this
             // Register listener for unknown commands
             if settings.enable_command_suggestions {
                 // Remove default listener to register new default one
@@ -554,7 +515,7 @@ impl<'p> Command<'p> {
 
     pub fn before_help(&mut self, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
-            emitter.on(Event::OutputHelp, cb, -1)
+            emitter.on(Event::OutputHelp, cb, -4)
         }
     }
 
