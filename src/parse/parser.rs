@@ -63,6 +63,7 @@ impl<'p> Parser<'p> {
                 } else if let Some(opt) = resolve_new_option(cmd.get_options(), arg.clone()) {
                     // parse option
                     self.marked_args[cursor_index].1 = true;
+                    self.cursor_index += 1;
                     // Parse any args following option
                     self.parse_option(opt, args[(cursor_index + 1)..].to_vec())?
                 } else if arg.contains('=') && !self.allow_trailing_values {
