@@ -1,56 +1,15 @@
+#![allow(unused)]
 use std::io::Write;
 use termcolor::{Buffer, BufferWriter, ColorChoice, ColorSpec, WriteColor};
 
-use crate::{
-    parse::{Argument, Cmd, Flag},
-    Theme,
-};
-
-macro_rules! resolve_formatter {
-    ($fmtr:expr, $type:ty, $cb:ident, $vals:expr, $ptrn:expr) => {
-        let vals = $vals;
-        let ptrn = &$ptrn;
-
-        for (value, docstring) in $cb(&vals, ptrn) {
-            let val;
-            match ptrn {
-                Pattern::Legacy => {
-                    let mut default_buf_size = 0;
-                    for (value, _) in $cb(&vals, ptrn) {
-                        if value.capacity() > default_buf_size {
-                            // add some padding
-                            default_buf_size = value.capacity() + 5;
-                        }
-                    }
-                    val = legacy_format_output(&value, &docstring, default_buf_size);
-                }
-                Pattern::Standard => val = standard_format_output(&value, &docstring),
-                Pattern::Custom(ref _str) => val = standard_format_output(&value, &docstring),
-            }
-            $fmtr.add(Designation::Keyword, &format!("   {}", val.0));
-            $fmtr.add(Designation::Description, &format!("{}\n", val.1));
-        }
-    };
-}
-
-// macro_rules! construct_pattern {
-//     ($body:expr) => {
-
-//     };
-// }
+use crate::{parse::Argument, Theme};
 
 pub struct Formatter {
     buffer: Buffer,
-    #[allow(unused)]
     writer: BufferWriter,
-    #[allow(unused)]
     theme: Theme,
-}
-
-pub enum FormatterRules {
-    Option(Pattern),
-    Cmd(Pattern),
-    Args(Pattern),
+    glob_pattern: Pattern,
+    padding: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -60,14 +19,7 @@ pub enum Pattern {
     Custom(CustomPattern),
 }
 
-#[derive(Debug, Clone)]
-pub struct CustomPattern {
-    #[allow(unused)]
-    options_pattern: String,
-    #[allow(unused)]
-    cmds_pattern: String,
-}
-
+#[derive(Debug, Clone, Copy)]
 pub enum Designation {
     Headline,
     Description,
@@ -76,14 +28,72 @@ pub enum Designation {
     Keyword,
 }
 
+pub trait FormatGenerator {
+    fn generate(&self, ptrn: Pattern) -> (String, String);
+}
+
+#[derive(Debug, Clone)]
+pub struct CustomPattern {
+    pub args_fmter: String,     // {{literal}} {{name}} {{description}}
+    pub flags_fmter: String,    // {{short}} {{long}}
+    pub options_fmter: String,  // {{short}} {{long}} {{args}}
+    pub sub_cmds_fmter: String, // {{name}} {{alias}} {{args}} {{description}}
+    pub prettify_as_legacy: bool,
+}
+
+impl Default for CustomPattern {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CustomPattern {
+    pub fn new() -> Self {
+        Self {
+            args_fmter: "{{name}}".into(),
+            flags_fmter: "{{short}}, {{long}}".into(),
+            options_fmter: "{{short}}, {{long}} {{args}}".into(),
+            sub_cmds_fmter: "{{name}}".into(),
+            prettify_as_legacy: true,
+        }
+    }
+
+    pub fn args_fmter(mut self, val: &str) -> Self {
+        self.args_fmter = val.into();
+        self
+    }
+
+    pub fn flags_fmter(mut self, val: &str) -> Self {
+        self.flags_fmter = val.into();
+        self
+    }
+
+    pub fn options_fmter(mut self, val: &str) -> Self {
+        self.options_fmter = val.into();
+        self
+    }
+
+    pub fn sub_cmds_fmter(mut self, val: &str) -> Self {
+        self.sub_cmds_fmter = val.into();
+        self
+    }
+
+    pub fn prettify(mut self, val: bool) -> Self {
+        self.prettify_as_legacy = val;
+        self
+    }
+}
+
 impl Formatter {
     pub fn new(theme: Theme) -> Self {
-        let bfwrt = BufferWriter::stderr(ColorChoice::Always);
-        let buffer = bfwrt.buffer();
+        let writer = BufferWriter::stderr(ColorChoice::Always);
+        let buffer = writer.buffer();
         Self {
-            writer: bfwrt,
             buffer,
+            writer,
             theme,
+            padding: 10,
+            glob_pattern: Pattern::Legacy,
         }
     }
 
@@ -98,131 +108,106 @@ impl Formatter {
             Keyword => self.theme.keyword,
         };
 
+        // Store ref to main buffer
+        let main_buff = &mut self.buffer;
+
+        // Create temporary buffer and buff_writer
         let temp_writer = BufferWriter::stderr(ColorChoice::Always);
         let mut temp_buff = temp_writer.buffer();
 
-        let og_buff = &mut self.buffer;
-
+        // Use desired colors to write to the temporary buffer
         temp_buff
             .set_color(ColorSpec::new().set_fg(Some(color)))
             .unwrap();
         write!(&mut temp_buff, "{}", value).unwrap();
 
-        og_buff.write_all(temp_buff.as_slice()).unwrap();
-        // &self.buffer.write(temp_buff.as_slice()).unwrap();
+        // Copy contents of temporary buffer to main buffer
+        main_buff.write_all(temp_buff.as_slice()).unwrap();
 
+        // Reset both buffers
         WriteColor::reset(&mut temp_buff).unwrap();
-        WriteColor::reset(og_buff).unwrap();
-    }
-
-    pub fn format(
-        &mut self,
-        rule: FormatterRules,
-        flags: Option<Vec<Flag>>,
-        cmds: Option<Vec<Cmd>>,
-        args: Option<Vec<Argument>>,
-    ) {
-        match rule {
-            FormatterRules::Cmd(ptrn) => {
-                resolve_formatter!(self, Cmd, command_iterator, cmds.unwrap(), ptrn);
-            }
-            FormatterRules::Option(ptrn) => {
-                resolve_formatter!(self, Flag, option_iterator, flags.unwrap(), ptrn);
-            }
-            FormatterRules::Args(ptrn) => {
-                resolve_formatter!(self, Argument, args_iterator, args.unwrap(), ptrn);
-            }
-        }
+        WriteColor::reset(main_buff).unwrap();
     }
 
     pub fn print(&mut self) {
         self.writer.print(&self.buffer).unwrap();
         WriteColor::reset(&mut self.buffer).unwrap();
     }
-}
 
-impl Default for Formatter {
-    fn default() -> Self {
-        Self::new(Theme::default())
-    }
-}
-
-fn legacy_format_output(pre: &str, leading: &str, cap: usize) -> (String, String) {
-    let mut string_buff = String::with_capacity(cap);
-    string_buff.push_str(pre);
-
-    let mut diff = cap - string_buff.bytes().count();
-    while diff > 0 {
-        string_buff.push(' ');
-        diff -= 1;
+    pub fn section(&mut self, value: &str) {
+        self.add(Designation::Headline, &format!("\n{}:\n", value));
     }
 
-    (string_buff, leading.to_string())
-}
+    pub fn close(&mut self) {
+        self.add(Designation::Other, "\n");
+    }
 
-fn standard_format_output(pre: &str, leading: &str) -> (String, String) {
-    let mut str_buff = String::new();
-    str_buff.push_str(&format!("{}\n", &pre));
+    pub fn format<L, T>(&mut self, args: L, ptrn: Pattern)
+    where
+        L: IntoIterator<Item = T>,
+        T: FormatGenerator,
+    {
+        let mut values = vec![];
 
-    (str_buff, format!("   {}\n", leading))
-}
-
-// fn custom_format_output() -> (String, String) {}
-
-fn option_iterator(flags: &[Flag], ptrn: &Pattern) -> Vec<(String, String)> {
-    let mut vals = vec![];
-    for opt in flags {
-        let mut params = String::new();
-        for v in &opt.params {
-            params.push_str(v.literal.as_str());
-            params.push(' ');
+        for item in args.into_iter() {
+            let v = item.generate(ptrn.clone());
+            values.push(v);
         }
 
-        let value = match &ptrn {
-            Pattern::Custom(_syn) => {
-                format!("{}, {} {}", opt.short, opt.long, params.trim())
+        for (leading, floating) in values.iter() {
+            match &ptrn {
+                Pattern::Legacy => {
+                    for (v, _) in values.iter() {
+                        if v.capacity() > self.padding {
+                            self.padding = v.capacity() + 5;
+                        }
+                    }
+
+                    self.legacy_format_output(leading, floating);
+                }
+                Pattern::Standard => self.standard_format_output(leading, floating),
+                Pattern::Custom(ptrn) => self.custom_format_output(ptrn, leading, floating),
             }
-            _ => format!("{}, {} {}", opt.short, opt.long, params.trim()),
-        };
-
-        vals.push((value, opt.docstring.clone()));
+        }
     }
 
-    vals
-}
+    fn legacy_format_output(&mut self, leading: &str, floating: &str) {
+        let cap = self.padding;
+        let mut string_buff = String::with_capacity(cap);
+        string_buff.push_str(leading);
 
-fn command_iterator(cmds: &[Cmd], ptrn: &Pattern) -> Vec<(String, String)> {
-    let mut vals = vec![];
+        let mut diff = if cap > string_buff.bytes().count() {
+            cap - string_buff.bytes().count()
+        } else {
+            self.padding = string_buff.bytes().count() + 5;
+            5
+        };
 
-    for cmd in cmds {
-        let mut params = String::new();
-        for a in cmd.get_cmd_input() {
-            params.push_str(a.literal.as_str());
-            params.push(' ');
+        while diff > 0 {
+            string_buff.push(' ');
+            diff -= 1;
         }
 
-        let value = match &ptrn {
-            Pattern::Legacy => format!("{} | {}", cmd.get_name(), cmd.get_alias()),
-            Pattern::Standard => format!("{} | {}, {}", cmd.get_name(), cmd.get_alias(), params),
-            Pattern::Custom(_syn) => format!("{} | {}", cmd.get_name(), cmd.get_alias()),
-        };
-
-        vals.push((value, cmd.get_description().to_owned()))
+        self.add(Designation::Keyword, &format!("   {}", string_buff));
+        self.add(Designation::Description, &format!("{}\n", floating))
     }
 
-    vals
-}
-
-fn args_iterator(args: &[Argument], ptrn: &Pattern) -> Vec<(String, String)> {
-    let mut vals = vec![];
-    for arg in args {
-        let value = match &ptrn {
-            Pattern::Legacy => arg.name.to_string(),
-            _ => arg.name.to_string(),
-        };
-
-        vals.push((value, arg.description.clone().unwrap()))
+    fn standard_format_output(&mut self, leading: &str, floating: &str) {
+        self.add(Designation::Keyword, &format!("    {}\n", leading));
+        self.add(Designation::Description, &format!("      {}\n", floating));
     }
 
-    vals
+    fn custom_format_output(&mut self, ptrn: &CustomPattern, leading: &str, floating: &str) {
+        if ptrn.prettify_as_legacy {
+            self.legacy_format_output(leading, floating);
+        } else {
+            self.add(Designation::Keyword, leading);
+
+            if floating.is_empty() {
+                self.add(Designation::Other, "\n");
+            } else {
+                self.add(Designation::Other, &format!("{}\n", floating));
+            }
+        }
+    }
 }

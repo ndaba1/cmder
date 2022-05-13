@@ -1,12 +1,11 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
-use crate::core::new_program::Command;
+use crate::core::Command;
 
 const MIN_MATCH_SIZE: i32 = 3;
 
 pub fn suggest_cmd(val: &str, list: &[Command]) -> Option<String> {
+    // TODO: Check for ambiguos matches
     let mut cmd_map = HashMap::new();
 
     for cmd in list {

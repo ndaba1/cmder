@@ -11,16 +11,21 @@ fn main() {
     program
         .argument("<TEXT...>", "The text to echo")
         .option("-n --newline", "Whether to add a newline at the end")
-        .action(|values, options| {
-            // We can unwrap the value because we know it's there, an error would have been thrown if it wasn't
-            let text = values.get("TEXT").unwrap().clone();
-
-            if options.contains_key("newline") {
-                println!("{}", text);
-            } else {
-                print!("{}", text);
-            }
-        });
+        .action(cmd::echo_cmd_cb);
 
     program.parse();
+}
+
+mod cmd {
+    use cmder::ParserMatches;
+
+    pub fn echo_cmd_cb(m: ParserMatches) {
+        let text = m.get_arg("<TEXT...>").unwrap();
+
+        if m.contains_flag("-n") {
+            println!("{text}")
+        } else {
+            print!("{text}")
+        }
+    }
 }

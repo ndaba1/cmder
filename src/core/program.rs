@@ -1,392 +1,591 @@
-use std::collections::HashMap;
+#![allow(unused)]
+use std::{env, fmt::Debug, path::PathBuf, rc::Rc};
 
-use crate::parse::{Argument, Cmd, Flag, Parser};
-use crate::ui::{Designation, Formatter, Pattern, PredefinedThemes, Theme};
-use crate::utils::print_help;
+use crate::{
+    core::errors::CmderError,
+    parse::{matches::ParserMatches, parser::Parser, Argument},
+    ui::formatter::FormatGenerator,
+    utils::{self, HelpWriter},
+    Event, Pattern, PredefinedThemes, Theme,
+};
 
-use super::{Event, EventEmitter, ProgramSettings};
+use super::events::EventListener;
+use super::{
+    super::parse::flags::{CmderFlag, CmderOption},
+    events::{EventConfig, EventEmitter},
+    settings::{ProgramSettings, Setting},
+};
 
-type Callback = fn(HashMap<String, String>, HashMap<String, String>) -> ();
-/// The crux of the library, the program holds all information about your cli. It contains a vector field that stores all the commands that can be invoked from your program and also stores some metadata about your program
-pub struct Program {
-    /// Stores all the commands that your program contains. You won't have to deal with this field directly rather by calling specific methods that allow you to build commands and add them to this vector
-    cmds: Vec<Cmd>,
+type Callback = fn(ParserMatches) -> ();
 
-    /// Hold the version information of your program, It's gets printed out when the -v | --version flag is passed as an arg
-    version: String,
-
-    /// Optional metadata that contains the author of the program, also gets printed out when the -v flag is passed to the program
-    author: String,
-
-    /// A short description of what the program does, usually the programs tagline. It gets printed out when the version and help flags are passed
-    description: String,
-
-    /// The name of the program. It is obtained from the args passed to the cli and is used when printing help information, or any other cases that require the program name
-    name: String,
-
-    /// A vector containing the flags/swicthed that can be passed to the root instance of the program and not the subcommands
-    options: Vec<Flag>,
-
-    /// A vector holding args/params that can be passed to the program itself directly, rather than to its commands.
-    arguments: Vec<Argument>,
-
-    /// This is applicable in cases where the program can be executed directly without necessarily requiring a command to be passed to it
-    callback: Option<Callback>,
-
-    /// An instance of the EventEmitter struct that the program can use to emit and listen to events. The program also contains utility functions to interface with the event_emitter which it contains.
-    event_emitter: EventEmitter,
-
-    /// A collection of settings including the theme and pattern used by the program that determine its default behavior
-    settings: ProgramSettings,
-}
+pub struct Program {}
 
 impl Program {
-    /// Creates a simple, blank instance of the program struct to which methods then get chained allowing the fields to be mutated accordingly
-    pub fn new() -> Self {
-        Self {
-            cmds: vec![],
-            name: "".to_owned(),
-            description: "".to_owned(),
-            author: "".to_owned(),
-            callback: None,
-            version: "0.1.0".to_owned(),
-            arguments: vec![],
-            event_emitter: EventEmitter::new(),
-            settings: ProgramSettings::default(),
-            options: vec![
-                Flag::new("-h --help", "Output help information for the program"),
-                Flag::new("-v --version", "Output the version info for the program"),
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> Command<'static> {
+        Command {
+            flags: vec![
+                CmderFlag::new("-v", "--version", "Print out version information"),
+                CmderFlag::new("-h", "--help", "Print out help information"),
             ],
+            is_root: true,
+            emitter: Some(EventEmitter::default()),
+            ..Command::new("")
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Command<'p> {
+    name: String,
+    theme: Theme,
+    is_root: bool,
+    pattern: Pattern,
+    alias: Option<&'p str>,
+    author: Option<&'p str>,
+    version: Option<&'p str>,
+    arguments: Vec<Argument>,
+    flags: Vec<CmderFlag<'p>>,
+    options: Vec<CmderOption<'p>>,
+    description: Option<&'p str>,
+    more_info: Option<&'p str>,
+    usage_str: Option<&'p str>,
+    settings: ProgramSettings,
+    emitter: Option<EventEmitter>,
+    subcommands: Vec<Command<'p>>,
+    callback: Option<Callback>, // (cb_function, index_of_execution)
+    parent: Option<Rc<Command<'p>>>,
+}
+
+impl<'d> Debug for Command<'d> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "name: {},",
+            self.name,
+            // self.alias.unwrap_or(""),
+            // self.arguments,
+            // self.flags,
+            // self.options,
+            // self.cmd_path,
+            // self.subcommands
+        ))
+    }
+}
+
+impl<'p> Command<'p> {
+    pub fn new(name: &'p str) -> Self {
+        Self {
+            name: name.to_string(),
+            alias: None,
+            arguments: vec![],
+            description: None,
+            flags: vec![CmderFlag::new("-h", "--help", "Print out help information")],
+            options: vec![],
+            subcommands: vec![],
+            callback: None,
+            parent: None,
+            more_info: None,
+            version: None,
+            author: None,
+            theme: Theme::default(),
+            pattern: Pattern::Legacy,
+            emitter: None,
+            settings: ProgramSettings::default(),
+            is_root: false,
+            usage_str: None,
         }
     }
 
-    /// A simple method for setting the version info of the program. It can be chained onto an instance of a program and also returns a mutable ref to the program allowing more methods to be chained on.
-    pub fn version(&mut self, vers: &str) -> &mut Program {
-        self.version = vers.to_string();
+    // Root command options
+    pub fn author(&mut self, author: &'p str) -> &mut Self {
+        self.author = Some(author);
         self
     }
 
-    /// A method for setting the author information of the program, it acts in the same manner as the version method.
-    pub fn author(&mut self, auth: &str) -> &mut Program {
-        self.author = auth.to_string();
+    pub fn version(&mut self, val: &'p str) -> &mut Self {
+        self.version = Some(val);
         self
     }
 
-    /// A method to override the program name displayed to users when printing out help information. This method can be used when the name of the executable is different from the name to be displayed.
-    pub fn bin_name(&mut self, name: &str) -> &mut Program {
-        self.name = name.to_string();
+    pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
+        if self.is_root {
+            self.name = val.into();
+        }
         self
     }
 
-    /// A method that receives a mutable ref to a program and a description, and mutates the about field in the program struct then returns another mutable ref to the program
-    pub fn description(&mut self, desc: &str) -> &mut Program {
-        self.description = desc.to_string();
-        self
-    }
-
-    /// A simpler way to register a command to the program. Instead of chaining the .add_cmd() method and the command method, this method does it for you.
-    pub fn command(&self, val: &str) -> Cmd {
-        let mut cmd = Cmd::new();
-        cmd.command(val);
-        cmd
-    }
-
-    /// A simple method that takes in a ref to self allowing it to be an associated method, then returns a new Cmd struct that can be manipulated and when the build method is called, the constructed command is pushed onto the cmds field
-    pub fn add_cmd(&mut self, cmd: Cmd) {
-        self.cmds.push(cmd);
-    }
-
-    /// A getter for the version information for the program instance
-    pub fn get_version(&self) -> &str {
-        &self.version
-    }
-
-    /// A getter for the author information
+    // Getters
     pub fn get_author(&self) -> &str {
-        &self.author
+        self.author.unwrap_or("")
     }
 
-    /// Returns the configured name of the executable
-    pub fn get_bin_name(&self) -> &str {
-        &self.name
+    pub fn get_version(&self) -> &str {
+        self.version.unwrap_or("")
     }
 
-    /// A getter that returns the description of the program
-    pub fn get_description(&self) -> &str {
-        &self.description
-    }
-
-    /// Returns a reference to the vector containing all the commands configured into the program.
-    pub fn get_all_cmds(&self) -> &Vec<Cmd> {
-        &self.cmds
-    }
-
-    /// A getter for the theme of the program
     pub fn get_theme(&self) -> &Theme {
-        &self.settings.theme
+        &self.theme
     }
 
-    /// A getter for the configured pattern of the program
     pub fn get_pattern(&self) -> &Pattern {
-        &self.settings.pattern
+        &self.pattern
     }
 
-    /// Returns a reference to the vector containing all the options configured into the program.
-    pub fn get_options(&self) -> &Vec<Flag> {
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn get_alias(&self) -> &str {
+        self.alias.unwrap_or("")
+    }
+
+    pub fn get_flags(&self) -> &Vec<CmderFlag> {
+        &self.flags
+    }
+
+    pub fn get_description(&self) -> &str {
+        self.description.unwrap_or("")
+    }
+
+    pub fn get_options(&self) -> &Vec<CmderOption> {
         &self.options
     }
 
-    /// This method is similar to the `get_options` except it returns the params of the program, both required and optional ones
-    pub fn get_input(&self) -> &Vec<Argument> {
+    pub fn get_arguments(&self) -> &Vec<Argument> {
         &self.arguments
     }
 
-    /// A private utility function that receives the first argument passed to the program, being the path to the binary file and extracts the name of the executable to be set as the name of the program and utilized when printing out help information.
-    /// The behavior of this function can be overriden by using the .bin_name() method. The method can be used when the name to be displayed to the users is different from the actual name of the executable binary.
-    fn get_target_name(&self, val: String) -> String {
+    pub fn get_subcommands(&self) -> &Vec<Self> {
+        &self.subcommands
+    }
+
+    pub fn get_parent(&self) -> Option<&Rc<Self>> {
+        self.parent.as_ref()
+    }
+
+    pub fn get_usage_str(&self) -> String {
+        let mut parent = self.get_parent();
+        let mut usage = vec![self.get_name()];
+        let mut usage_str = String::new();
+
+        while parent.is_some() {
+            usage.push(parent.unwrap().get_name());
+            parent = parent.unwrap().get_parent();
+        }
+
+        usage.reverse();
+
+        for v in &usage {
+            usage_str.push_str(v);
+            usage_str.push(' ');
+        }
+
+        usage_str.trim().into()
+    }
+
+    pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
+        self.subcommands
+            .iter()
+            .find(|c| c.get_name() == val || c.get_alias() == val)
+    }
+
+    fn _set_bin_name(&mut self, val: &str) {
         if self.name.is_empty() {
-            if cfg!(windows) {
-                let path_buff: Vec<&str> = val.split('\\').collect();
-                let target = path_buff.last().unwrap();
-                target.replace(".exe", "")
-            } else {
-                let path_buff: Vec<&str> = val.split('/').collect();
-                let target = path_buff.last().unwrap();
-                target.to_string()
-            }
-        } else {
-            self.name.clone()
-        }
-    }
+            let p_buff = PathBuf::from(val);
 
-    pub fn argument(&mut self, val: &str, body: &str) -> &mut Program {
-        let arg = Argument::new(val, Some(body.to_string()));
-
-        self.arguments.push(arg);
-        self
-    }
-
-    /// A method for adding options/flags directly to the program. It follows the same rules as the Cmd.options() method
-    pub fn option(&mut self, body: &str, desc: &str) -> &mut Program {
-        let flag = Flag::new(body, desc);
-
-        if !self.options.contains(&flag) {
-            self.options.push(flag);
-        }
-
-        self
-    }
-
-    /// This method receives the raw arguments passed to the program, and tries to get matches from all the configured commands or flags
-    /// If no command is matched, it either acts in a default manner or executes the configured callbacks if any
-    /// Also checks for the help and version flags.
-    fn _parse(&mut self, args: Vec<String>) {
-        if args.is_empty() {
-            let msg = if self.arguments.is_empty() && !self.cmds.is_empty() {
-                "You did not pass a command".to_string()
-            } else if !self.arguments.is_empty() && self.cmds.is_empty() {
-                let arg = self.arguments.first().unwrap();
-                format!("Missing required argument: {}", arg.literal)
-            } else {
-                "No command or arguments passed".to_string()
+            if let Some(name) = p_buff.file_name() {
+                self.name = name.to_str().unwrap().into();
             };
-            self.output_help(&msg);
-            self.emit(Event::OutputHelp, "");
-            return;
         }
+    }
 
-        let first_arg = args[0].to_lowercase();
-        let mut parent_cmd: Option<Cmd> = None;
-        let parent = if self
-            .cmds
-            .iter()
-            .any(|c| c.get_name() == first_arg || c.get_alias() == first_arg)
-        {
-            "cmd"
-        } else if self.cmds.iter().any(|c| {
-            if c.get_subcommands()
-                .iter()
-                .any(|s| s.get_name() == first_arg || s.get_alias() == first_arg)
-            {
-                parent_cmd = Some(c.clone());
-                return true;
-            }
-            false
-        }) {
-            "subcmd"
-        } else {
-            "program"
-        };
-
-        match parent {
-            "cmd" => {
-                let cmd = self.get_cmd(&first_arg).unwrap();
-
-                if args.len() >= 2
-                    && cmd
-                        .get_subcommands()
-                        .iter()
-                        .any(|sc| sc.get_alias() == args[1] || sc.get_name() == args[1])
-                {
-                    self._parse(args[1..].to_vec())
-                } else {
-                    let parser = Parser::new(self, Some(cmd));
-                    let (values, options) = parser.parse(parent, &args[1..].to_vec());
-                    (cmd.callback)(values, options);
-                }
-            }
-            "subcmd" => {
-                let p_cmd = parent_cmd.unwrap();
-                let cmd = p_cmd.find_subcmd(&first_arg).unwrap();
-
-                let parser = Parser::new(self, Some(cmd));
-                let (values, options) = parser.parse("cmd", &args[1..].to_vec());
-                (cmd.callback)(values, options);
-            }
-            _ => {
-                let parser = Parser::new(self, None);
-                let (vals, opts) = parser.parse(parent, &args);
-
-                if !self.arguments.is_empty() && self.callback.is_some() {
-                    (self.callback.unwrap())(vals, opts);
-                } else {
-                    self.emit(Event::UnknownCommand, &first_arg);
-                    // if let Some(cmd) = suggest_cmd(&first_arg, self.get_all_cmds()) {
-                    //     println!("error: Unknown command: {first_arg}");
-                    //     println!();
-                    //     println!("       did you mean \"{cmd}\"");
-                    // }
-                    let msg = format!("Unknown command \"{}\"", &first_arg);
-                    self.output_help(&msg);
-                    std::process::exit(1);
-                }
+    // Core functionality
+    fn _add_args(&mut self, args: &[&str]) {
+        for p in args.iter() {
+            let temp = Argument::new(p, None);
+            if !self.arguments.contains(&temp) {
+                self.arguments.push(temp);
             }
         }
     }
 
-    /// This method automatically receives the arguments passed to the program itself and parses the arguments accordingly.
-    pub fn parse(&mut self) {
-        let raw_args: Vec<String> = std::env::args().collect();
-        let args = raw_args[1..].to_vec();
-
-        self.name = self.get_target_name(raw_args[0].clone());
-        self._parse(args);
+    fn _add_sub_cmd(&mut self, sub_cmd: Self) {
+        self.subcommands.push(sub_cmd);
     }
 
-    /// Similar to the parse function with one fundamental difference. The parse function receives no arguments and will automatically get them from the args passed to the program. However, the parse from requires the args to parse to be passed to it as a vector of string slices.
-    pub fn parse_from(&mut self, values: Vec<&str>) {
-        let mut args = vec![];
-        for v in values {
-            args.push(v.to_string())
+    fn _add_parent(&mut self, parent: Rc<Self>) -> &mut Self {
+        self.parent = Some(parent);
+        self
+    }
+
+    #[deprecated(note = "Subcmds now built automatically")]
+    pub fn build(&mut self) {}
+
+    pub fn alias(&mut self, val: &'p str) -> &mut Self {
+        self.alias = Some(val);
+        self
+    }
+
+    pub fn description(&mut self, val: &'p str) -> &mut Self {
+        self.description = Some(val);
+        self
+    }
+
+    pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
+        let parent = Rc::new(self.to_owned());
+
+        self.subcommands.push(Self::new(name));
+        self.subcommands.last_mut().unwrap()._add_parent(parent)
+    }
+
+    pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
+        let arg = Argument::new(val, Some(help.to_string()));
+
+        if !self.arguments.contains(&arg) {
+            self.arguments.push(arg);
         }
-        self._parse(args)
-    }
-
-    /// Used to set the callback function that will be executed when the program is executed directly rather than a subcommand of the program.
-    pub fn action(
-        &mut self,
-        cb: fn(HashMap<String, String>, HashMap<String, String>) -> (),
-    ) -> &mut Program {
-        self.callback = Some(cb);
 
         self
     }
 
-    /// A simple method that tries to find a command from a given string slice that can either be the name of the command or its alias.
-    pub fn get_cmd(&self, val: &str) -> Option<&Cmd> {
-        self.cmds
-            .iter()
-            .find(|c| c.get_alias() == val || c.get_name() == val)
+    pub fn action(&mut self, cb: Callback) -> &mut Self {
+        self.callback = Some(cb);
+        self
     }
 
-    /// This method is used to set event listeners. It doesn't set the listeners itself but rather calls a similar method on the program's configured event emitter which then registers the listener.
-    pub fn on(&mut self, event: Event, callback: fn(&Program, String) -> ()) {
-        self.event_emitter.on(event, callback);
+    pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
+        let values: Vec<_> = val.split_whitespace().collect();
+
+        match values.len() {
+            2 => {
+                let flag = CmderFlag::new(values[0], values[1], help);
+                if !self.flags.contains(&flag) {
+                    self.flags.push(flag)
+                }
+            }
+            val if val > 2 => {
+                let option = CmderOption::new(values[0], values[1], help, &values[2..]);
+                if !self.options.contains(&option) {
+                    self.options.push(option)
+                }
+            }
+            _ => {}
+        }
+
+        self
     }
 
-    /// A similar method to the .on() method. This method is called when events occur and are therefore `emitted`, after which any listeners are invoked. Just like the on method, it doesnt actually invoke the listeners itself, but interfaces with the event_emitter.
-    pub fn emit(&self, event: Event, param: &str) {
-        self.event_emitter.emit(self, event, param.to_owned())
-    }
-
-    /// This method receives a pattern and simply modifies the pattern of the program.
-    pub fn set_pattern(&mut self, ptrn: Pattern) {
-        self.settings.pattern = ptrn
-    }
-
-    /// Similar to the set_pattern() method only that this one is used to set a theme from a list of predefined ones.
-    pub fn set_theme(&mut self, theme: PredefinedThemes) {
-        match theme {
-            PredefinedThemes::Plain => self.settings.theme = Theme::plain(),
-            PredefinedThemes::Colorful => self.settings.theme = Theme::colorful(),
+    // Settings
+    pub fn on(&mut self, event: Event, cb: EventListener) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.on(event, cb, 0)
         }
     }
 
-    /// When you wish to define your own custom theme, the set_custom_theme method is what is to be used. The method receives a theme struct with all the  fields configured accordingly.
-    pub fn set_custom_theme(&mut self, theme: Theme) {
-        self.settings.theme = theme
+    pub fn emit(&self, cfg: EventConfig) {
+        if let Some(emitter) = &self.emitter {
+            emitter.emit(cfg);
+        }
     }
 
-    /// This method is used to output help information to standard out. It uses the themes and patterns configured for the program.
-    pub fn output_help(&self, err: &str) {
-        print_help(self, None, err)
+    pub fn set(&mut self, setting: Setting) {
+        let s = &mut self.settings;
+
+        use Setting::*;
+        match setting {
+            ChoosePredefinedTheme(theme) => match theme {
+                PredefinedThemes::Plain => self.theme = Theme::plain(),
+                PredefinedThemes::Colorful => self.theme = Theme::colorful(),
+            },
+            EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
+            HideCommandAliases(hide) => s.hide_command_aliases = hide,
+            SeparateOptionsAndFlags(separate) => s.separate_options_and_flags = separate,
+            ShowHelpOnAllErrors(show) => s.show_help_on_all_errors = show,
+            ShowHelpOnEmptyArgs(show) => s.show_help_on_empty_args = show,
+            DefineCustomTheme(theme) => self.theme = theme,
+            SetProgramPattern(pattern) => self.pattern = pattern,
+            OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
+            OverrideSpecificEventListener(event) => s.events_to_override.push(event),
+            AutoIncludeHelpSubcommand(val) => s.auto_include_help_subcommand = val,
+            EnableTreeViewSubcommand(val) => s.enable_tree_view_subcommand = val,
+            IgnoreAllErrors(val) => s.ignore_all_errors = val,
+        }
     }
 
-    /// Simply outputs the name and version of the program. As well as the author information and program description.
-    pub fn output_version_info(&self) {
-        let mut fmtr = Formatter::new(self.settings.theme.clone());
+    // Parser
+    fn _handle_root_flags(&self, matches: &ParserMatches) {
+        let cmd = matches.get_matched_cmd().unwrap();
+        let program = matches.get_program();
 
-        use Designation::*;
+        let cfg = EventConfig::new(program);
+        if matches.contains_flag("-h") {
+            self.emit(cfg.set_matched_cmd(cmd).set_event(Event::OutputHelp));
+        } else if matches.contains_flag("-v") && cmd.is_root {
+            self.emit(
+                cfg.arg_c(1_usize)
+                    .args(vec![program.get_version().to_string()])
+                    .set_event(Event::OutputVersion),
+            );
+        }
+    }
 
-        fmtr.add(Keyword, &format!("{}, v{}\n", self.name, self.version));
-        fmtr.add(Description, &format!("{}\n", self.description));
-        fmtr.add(Other, &format!("{}\n", self.author));
+    fn __parse(&'p mut self, args: Vec<String>) {
+        self._set_bin_name(&args[0]);
 
-        fmtr.print();
+        // TODO: Rewrite this functionality
+        self.__init(); // performance dip here
+
+        let mut parser = Parser::new(self);
+
+        match parser.parse(args[1..].to_vec()) {
+            Ok(matches) => {
+                self._handle_root_flags(&matches);
+
+                if let Some(cmd) = matches.get_matched_cmd() {
+                    if let Some(cb) = cmd.callback {
+                        (cb)(matches);
+                    }
+                }
+            }
+            Err(e) => {
+                // FIXME: No clones
+                // TODO: Impl into eventcfg from cmdererror
+                let clone = self.clone();
+                let shared_cfg = EventConfig::new(&clone).error_str(e.clone().into());
+
+                use CmderError::*;
+                let event_cfg = match e {
+                    MissingRequiredArgument(args) => shared_cfg
+                        .arg_c(args.len())
+                        .args(args)
+                        .exit_code(5)
+                        .set_event(Event::MissingRequiredArgument),
+                    OptionMissingArgument(args) => shared_cfg
+                        .arg_c(args.len())
+                        .args(args)
+                        .exit_code(10)
+                        .set_event(Event::OptionMissingArgument),
+                    UnknownCommand(cmd) => shared_cfg
+                        .arg_c(1)
+                        .args(vec![cmd])
+                        .exit_code(15)
+                        .set_event(Event::UnknownCommand),
+                    UnknownOption(opt) => shared_cfg
+                        .arg_c(1)
+                        .args(vec![opt])
+                        .exit_code(20)
+                        .set_event(Event::UnknownOption),
+                    UnresolvedArgument(vals) => shared_cfg
+                        .arg_c(vals.len())
+                        .args(vals)
+                        .exit_code(25)
+                        .set_event(Event::UnresolvedArgument),
+                };
+
+                self.emit(event_cfg);
+            }
+        }
+    }
+
+    fn __init(&mut self) {
+        if !self.subcommands.is_empty() && self.settings.auto_include_help_subcommand {
+            // Add help subcommand
+            self.subcommand("help")
+                .argument("<SUB-COMMAND>", "The subcommand to print out help info for")
+                .description("A subcommand used for printing out help")
+                .action(|m| {
+                    let cmd = m.get_matched_cmd().unwrap();
+                    let val = m.get_arg("<SUB-COMMAND>").unwrap();
+                    let parent = cmd.get_parent().unwrap();
+
+                    if let Some(cmd) = parent.find_subcommand(&val) {
+                        cmd.output_help();
+                    }
+                });
+        }
+
+        // Means that it is the root_cmd(program)
+        if let Some(emitter) = &mut self.emitter {
+            let settings = &self.settings;
+
+            use Event::*;
+
+            emitter.on(
+                OutputHelp,
+                |cfg| cfg.get_matched_cmd().unwrap().output_help(),
+                -4,
+            );
+
+            // Register default listeners
+            if !settings.override_all_default_listeners {
+                // Default behavior for errors is to print the error message
+                if !settings.ignore_all_errors {
+                    emitter.on_all_errors(
+                        |cfg| {
+                            let error = cfg.get_error_str();
+
+                            // TODO: Improve default error handling
+                            if !error.is_empty() {
+                                eprintln!("Error: {error}");
+                            }
+                        },
+                        -4,
+                    );
+                }
+
+                // Register default output version listener
+                emitter.on(
+                    OutputVersion,
+                    |cfg| {
+                        let p = cfg.get_program();
+
+                        println!("{}, v{}", p.get_name(), p.get_version());
+                        println!("{}", p.get_author());
+                        println!("{}", p.get_description());
+                    },
+                    -4,
+                );
+
+                // Remove default listeners if behavior set to override
+                for event in &settings.events_to_override {
+                    emitter.rm_lstnr_idx(*event, -4)
+                }
+            }
+
+            // Register help listeners
+            if settings.show_help_on_all_errors && !settings.ignore_all_errors {
+                let _output_help_ = |cfg: EventConfig| cfg.get_matched_cmd().unwrap().output_help();
+
+                // Output help on all error events
+                emitter.insert_before_all(_output_help_);
+            }
+
+            // TODO: remove this
+            // Register listener for unknown commands
+            if settings.enable_command_suggestions {
+                // Remove default listener to register new default one
+                emitter.rm_lstnr_idx(UnknownCommand, -4);
+
+                emitter.on(
+                    UnknownCommand,
+                    |cfg| {
+                        println!("Error: {}\n", cfg.get_error_str());
+
+                        // Suggest command
+                        let prog = cfg.get_program();
+                        let cmd = &cfg.get_args()[0];
+
+                        if let Some(ans) = utils::suggest_cmd(cmd, prog.get_subcommands()) {
+                            // output command suggestion
+                            println!("       Did you mean: `{ans}` ?\n")
+                        }
+                    },
+                    -1,
+                )
+            }
+        }
+    }
+
+    pub fn parse(&'p mut self) {
+        let args = env::args().collect::<Vec<_>>();
+        self.__parse(args);
+    }
+
+    pub fn parse_from(&'p mut self, list: Vec<&str>) {
+        let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        self.__parse(args);
+    }
+
+    // Others
+    pub fn output_help(&self) {
+        HelpWriter::write(self, self.get_theme().clone(), self.get_pattern().clone());
+    }
+
+    pub fn before_all(&mut self, cb: EventListener) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.insert_before_all(cb)
+        }
+    }
+
+    pub fn after_all(&mut self, cb: EventListener) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.insert_after_all(cb)
+        }
+    }
+
+    pub fn before_help(&mut self, cb: EventListener) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.on(Event::OutputHelp, cb, -4)
+        }
+    }
+
+    pub fn after_help(&mut self, cb: EventListener) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.on(Event::OutputHelp, cb, 1)
+        }
+    }
+
+    // Debug utilities
+    pub fn display_commands_tree(&self) {
+        let mut commands = self.get_subcommands();
+        let mut empty = String::new();
+
+        let mut parent = self.get_parent();
+
+        while parent.is_some() {
+            empty.push('\t');
+            empty.push('|');
+
+            parent = parent.unwrap().get_parent();
+        }
+
+        println!("{}-> {}", &empty, self.get_name());
+
+        for cmd in commands.iter() {
+            cmd.display_commands_tree();
+        }
+    }
+
+    pub fn init_dbg(&mut self) {
+        self.__init();
     }
 }
 
-impl Default for Program {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+impl<'f> FormatGenerator for Command<'f> {
+    fn generate(&self, ptrn: Pattern) -> (String, String) {
+        match &ptrn {
+            Pattern::Custom(ptrn) => {
+                let base = &ptrn.sub_cmds_fmter;
 
-#[cfg(test)]
-mod test {
-    use super::*;
+                let mut leading = base.replace("{{name}}", self.get_name());
+                let mut floating = String::from("");
 
-    #[test]
-    fn test_create_prog() {
-        let mut auto = Program::new();
-        auto.author("me").description("a test");
+                if let Some(alias) = self.alias {
+                    leading = leading.replace("{{alias}}", alias)
+                } else {
+                    leading = leading.replace("{{alias}}", "")
+                }
 
-        let manual = Program {
-            cmds: vec![],
-            name: "".to_owned(),
-            description: "a test".to_string(),
-            callback: None,
-            author: "me".to_string(),
-            options: vec![],
-            version: "0.1.0".to_string(),
-            arguments: vec![],
-            event_emitter: EventEmitter::new(),
-            settings: ProgramSettings::default(),
-        };
+                if base.contains("{{args}}") && !self.get_arguments().is_empty() {
+                    let mut value = String::new();
 
-        assert_eq!(auto.author, manual.author);
-        assert_eq!(auto.description, manual.description);
-    }
+                    for a in self.get_arguments() {
+                        value.push_str(&(a.literal));
+                        value.push(' ');
+                    }
 
-    #[test]
-    fn test_add_cmd_func() {
-        let mut prog = Program::new();
+                    leading = leading.replace("{{args}}", value.trim());
+                }
 
-        prog.command("name <some-name>")
-            .alias("n")
-            .description("some random command")
-            .build(&mut prog);
+                if base.contains("{{description}}") {
+                    leading = leading.replace("{{description}}", self.get_author());
+                } else {
+                    floating = self.get_description().into()
+                }
 
-        assert_eq!(prog.cmds.len(), 1);
+                (leading, floating)
+            }
+            _ => (self.get_name().into(), self.get_description().into()),
+        }
     }
 }

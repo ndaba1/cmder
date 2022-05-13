@@ -1,33 +1,31 @@
 #![allow(dead_code)]
 
-use crate::core::new_program::Command;
+use crate::core::Command;
 
-use super::flags::{NewFlag, NewOption};
+use super::flags::{CmderFlag, CmderOption};
 
 #[derive(Debug, Clone)]
 pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
-    pub(crate) cursor_offset: usize,
     pub(crate) root_cmd: &'pm Command<'pm>,
-    pub(crate) matched_subcmd: Option<&'pm Command<'pm>>,
+    pub(crate) matched_cmd: Option<&'pm Command<'pm>>,
     pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
     pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
     pub(crate) arg_matches: Vec<ArgsMatches>,
     pub(crate) positional_args: Vec<String>,
-    pub(crate) marked_args: Vec<(String, i32)>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub(crate) struct FlagsMatches<'a> {
     pub(crate) cursor_index: usize,
-    pub(crate) flag: NewFlag<'a>,
+    pub(crate) flag: CmderFlag<'a>,
     pub(crate) appearance_count: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct OptionsMatches<'o> {
     pub(crate) cursor_index: usize,
-    pub(crate) option: NewOption<'o>,
+    pub(crate) option: CmderOption<'o>,
     pub(crate) args: Vec<ArgsMatches>,
     pub(crate) appearance_count: usize,
 }
@@ -38,7 +36,7 @@ impl<'o> OptionsMatches<'o> {
             appearance_count: 0,
             args: vec![],
             cursor_index: 0,
-            option: NewOption::default(),
+            option: CmderOption::default(),
         }
     }
 
@@ -76,14 +74,12 @@ impl<'a> ParserMatches<'a> {
     pub(crate) fn new(count: usize, root_cmd: &'a Command<'a>) -> Self {
         Self {
             arg_count: count,
-            cursor_offset: 0,
             flag_matches: vec![],
             root_cmd,
-            matched_subcmd: None,
+            matched_cmd: None,
             arg_matches: vec![],
             option_matches: vec![],
             positional_args: vec![],
-            marked_args: vec![],
         }
     }
 
@@ -92,7 +88,7 @@ impl<'a> ParserMatches<'a> {
     }
 
     pub fn get_matched_cmd(&self) -> Option<&'a Command<'a>> {
-        self.matched_subcmd
+        self.matched_cmd
     }
 
     pub fn get_raw_args(&self) -> Vec<String> {
@@ -105,6 +101,10 @@ impl<'a> ParserMatches<'a> {
         args
     }
 
+    pub fn get_raw_args_count(&self) -> usize {
+        self.arg_count
+    }
+
     pub fn get_arg(&self, val: &str) -> Option<String> {
         self.arg_matches
             .iter()
@@ -112,8 +112,20 @@ impl<'a> ParserMatches<'a> {
             .map(|a| a.raw_value.clone())
     }
 
-    pub fn get_raw_args_count(&self) -> usize {
-        self.arg_count
+    pub fn get_positional_args(&self) -> Vec<String> {
+        self.positional_args.clone()
+    }
+
+    pub fn get_option_arg(&self, val: &str) -> Option<String> {
+        let mut arg = None;
+        self.option_matches.iter().for_each(|o| {
+            o.args.iter().for_each(|a| {
+                if (a.instance_of).as_str() == val {
+                    arg = Some(a.raw_value.to_owned());
+                }
+            })
+        });
+        arg
     }
 
     pub fn get_instances_of(&self, val: &str) -> Vec<&str> {
@@ -129,7 +141,7 @@ impl<'a> ParserMatches<'a> {
         instances
     }
 
-    pub fn get_flag(&self, val: &str) -> Option<NewFlag> {
+    pub fn get_flag(&self, val: &str) -> Option<CmderFlag> {
         self.flag_matches
             .iter()
             .find(|f| {
@@ -139,7 +151,7 @@ impl<'a> ParserMatches<'a> {
             .map(|fm| fm.flag.clone())
     }
 
-    pub fn get_option(&self, val: &str) -> Option<NewOption> {
+    pub fn get_option(&self, val: &str) -> Option<CmderOption> {
         self.option_matches
             .iter()
             .find(|opc| {
@@ -189,19 +201,5 @@ impl<'a> ParserMatches<'a> {
         }
 
         count
-    }
-
-    pub(crate) fn get_option_config(&self, val: &str) -> Option<&OptionsMatches> {
-        let mut cfg = None;
-
-        for opc in &self.option_matches {
-            let op = &opc.option;
-
-            if op.short_version == val || op.long_version == val {
-                cfg = Some(opc);
-            }
-        }
-
-        cfg
     }
 }

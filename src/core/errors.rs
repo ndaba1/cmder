@@ -2,13 +2,23 @@
 
 use std::fmt;
 
+use crate::Event;
+
 #[derive(Debug, Clone)]
 pub enum CmderError {
-    MissingArgument(Vec<String>),       // exit code 5
-    OptionMissingArgument(Vec<String>), // exit code 10
-    UnknownCommand(String),             // exit code 15
-    UnknownOption(String),              // exit code 20
-    UnresolvedArgument(Vec<String>),    // exit code 25
+    MissingRequiredArgument(Vec<String>), // exit code 5
+    OptionMissingArgument(Vec<String>),   // exit code 10
+    UnknownCommand(String),               // exit code 15
+    UnknownOption(String),                // exit code 20
+    UnresolvedArgument(Vec<String>),      // exit code 25
+}
+
+pub struct CmderErrorr {
+    kind: Event,
+    message: String,
+    help: String,
+    args: Vec<String>,
+    exit_code: usize,
 }
 
 pub type CmderResult<T, E = CmderError> = Result<T, E>;
@@ -17,7 +27,7 @@ impl From<CmderError> for String {
     fn from(err: CmderError) -> Self {
         use CmderError::*;
         match err {
-            MissingArgument(ref val) => {
+            MissingRequiredArgument(ref val) => {
                 let arg_string = get_vector_string(val);
                 format!("Missing the following required argument(s): {arg_string}")
             }

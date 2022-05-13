@@ -1,7 +1,5 @@
 use cmder::{
-    self,
-    core::new_program::{Command, Program},
-    ParserMatches,
+    self, ParserMatches, {Command, Program},
 };
 
 fn create_default_program(cb: fn(ParserMatches)) -> Command<'static> {
@@ -58,7 +56,7 @@ fn cmd_metadata_cb(m: ParserMatches) {
     assert!(cmd.get_parent().is_some(), "No parent found");
 
     assert_eq!(cmd.get_name(), "test");
-    assert_eq!(cmd.get_alias(), Some("t"));
+    assert_eq!(cmd.get_alias(), "t");
     assert_eq!(cmd.get_arguments().len(), 1);
     assert_eq!(cmd.get_flags().len(), 3); // the two created flags plus the help flag
     assert_eq!(cmd.get_description(), "A test subcommand")
