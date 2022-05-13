@@ -65,14 +65,13 @@ impl<'p> Parser<'p> {
                     self.marked_args[cursor_index].1 = true;
                     // Parse any args following option
                     self.parse_option(opt, args[(cursor_index + 1)..].to_vec())?
-                } else if arg.contains("=") && !self.allow_trailing_values {
+                } else if arg.contains('=') && !self.allow_trailing_values {
                     // Split the arg into key and value
                     let parts = arg.split('=').collect::<Vec<_>>();
 
                     if let Some(opt) = resolve_new_option(cmd.get_options(), parts[0].into()) {
                         // parse option using parts[1]
-                        let mut temp_args: Vec<String> = vec![];
-                        temp_args.push(parts[1].into());
+                        let mut temp_args: Vec<String> = vec![parts[1].into()];
                         temp_args.extend_from_slice(&args[(cursor_index + 1)..]);
 
                         self.parse_option(opt, temp_args)?
@@ -122,7 +121,7 @@ impl<'p> Parser<'p> {
     }
 
     fn is_marked(&self, idx: usize) -> bool {
-        self.marked_args.get(idx).unwrap().1 == true
+        self.marked_args.get(idx).unwrap().1
     }
 
     // Returns option matches
@@ -131,7 +130,7 @@ impl<'p> Parser<'p> {
         let args = self.parse_args(&opt.arguments, args)?;
         let config = &mut self.parser_cfg;
 
-        if config.contains_option(&opt.long_version) {
+        if config.contains_option(opt.long_version) {
             for opt_cfg in config.option_matches.iter_mut() {
                 if opt_cfg.option.long_version == opt.long_version {
                     opt_cfg.args.extend_from_slice(&args[..]);
@@ -192,7 +191,7 @@ impl<'p> Parser<'p> {
     // Parse arg
     fn parse_args(
         &mut self,
-        arg_list: &Vec<Argument>,
+        arg_list: &[Argument],
         raw_args: Vec<String>,
     ) -> CmderResult<Vec<ArgsMatches>> {
         let cursor_index = self.cursor_index;

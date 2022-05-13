@@ -41,6 +41,12 @@ pub struct CustomPattern {
     pub prettify_as_legacy: bool,
 }
 
+impl Default for CustomPattern {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CustomPattern {
     pub fn new() -> Self {
         Self {

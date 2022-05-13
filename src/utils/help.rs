@@ -54,7 +54,7 @@ impl<'help> HelpWriter<'help> {
 
         if has_subcmds {
             fmter.section("SUB-COMMANDS");
-            fmter.format(cmd.get_subcommands().clone(), ptrn.clone());
+            fmter.format(cmd.get_subcommands().clone(), ptrn);
         }
 
         fmter.print();

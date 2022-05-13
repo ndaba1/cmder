@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::Event;
+
 #[derive(Debug, Clone)]
 pub enum CmderError {
     MissingRequiredArgument(Vec<String>), // exit code 5
@@ -9,6 +11,14 @@ pub enum CmderError {
     UnknownCommand(String),               // exit code 15
     UnknownOption(String),                // exit code 20
     UnresolvedArgument(Vec<String>),      // exit code 25
+}
+
+pub struct CmderErrorr {
+    kind: Event,
+    message: String,
+    help: String,
+    args: Vec<String>,
+    exit_code: usize,
 }
 
 pub type CmderResult<T, E = CmderError> = Result<T, E>;
