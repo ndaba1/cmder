@@ -98,3 +98,18 @@ impl FormatGenerator for Argument {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_arg_creation() {
+        let a = Argument::new("<test-app>", Some("Dummy help str".into()));
+
+        assert!(a.required);
+        assert!(!a.variadic);
+        assert_eq!(a.name, "test_app");
+        assert_eq!(a.description, Some("Dummy help str".into()));
+    }
+}
