@@ -65,7 +65,7 @@ impl<'d> Default for CmderOption<'d> {
     }
 }
 
-pub(crate) fn resolve_new_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag<'f>> {
+pub(crate) fn resolve_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag<'f>> {
     let mut flag = None;
 
     let val = val.as_str();
@@ -77,10 +77,7 @@ pub(crate) fn resolve_new_flag<'f>(list: &'f [CmderFlag], val: String) -> Option
     flag
 }
 
-pub(crate) fn resolve_new_option<'o>(
-    list: &'o [CmderOption],
-    val: String,
-) -> Option<CmderOption<'o>> {
+pub(crate) fn resolve_option<'o>(list: &'o [CmderOption], val: String) -> Option<CmderOption<'o>> {
     let mut flag = None;
 
     let val = val.as_str();

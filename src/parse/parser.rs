@@ -7,7 +7,7 @@ use crate::core::EventConfig;
 use crate::core::{CmderError, CmderResult};
 use crate::Event;
 
-use super::flags::{resolve_new_flag, resolve_new_option, CmderFlag, CmderOption};
+use super::flags::{resolve_flag, resolve_option, CmderFlag, CmderOption};
 use super::matches::{ArgsMatches, CommandMatches, FlagsMatches, OptionsMatches, ParserMatches};
 use super::Argument;
 
@@ -54,13 +54,13 @@ impl<'p> Parser<'p> {
                 continue;
             } else if arg.starts_with('-') {
                 // It is either a flag, an option, or '--', or unknown option/flag
-                if let Some(flag) = resolve_new_flag(cmd.get_flags(), arg.clone()) {
+                if let Some(flag) = resolve_flag(cmd.get_flags(), arg.clone()) {
                     // parse flag
                     if !self.allow_trailing_values {
                         self.marked_args[cursor_index].1 = true;
                         self.parse_flag(flag)
                     }
-                } else if let Some(opt) = resolve_new_option(cmd.get_options(), arg.clone()) {
+                } else if let Some(opt) = resolve_option(cmd.get_options(), arg.clone()) {
                     // parse option
                     self.marked_args[cursor_index].1 = true;
                     self.cursor_index += 1;
@@ -70,7 +70,7 @@ impl<'p> Parser<'p> {
                     // Split the arg into key and value
                     let parts = arg.split('=').collect::<Vec<_>>();
 
-                    if let Some(opt) = resolve_new_option(cmd.get_options(), parts[0].into()) {
+                    if let Some(opt) = resolve_option(cmd.get_options(), parts[0].into()) {
                         // parse option using parts[1]
                         let mut temp_args: Vec<String> = vec![parts[1].into()];
                         temp_args.extend_from_slice(&args[(cursor_index + 1)..]);
