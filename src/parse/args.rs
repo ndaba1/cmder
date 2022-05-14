@@ -31,19 +31,6 @@ impl Argument {
             variadic,
         }
     }
-
-    /// A method that takes in a vector of arguments, determines and returns which of the arguments are required.
-    pub fn get_required_args(list: &[Self]) -> Vec<Self> {
-        let mut req = vec![];
-
-        for arg in list {
-            if arg.required {
-                req.push(arg.clone())
-            }
-        }
-
-        req
-    }
 }
 
 /// Cleans an argument by removing any brackets and determining whether the argument is required is not.
