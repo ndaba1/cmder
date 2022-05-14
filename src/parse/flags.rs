@@ -10,6 +10,7 @@ pub struct CmderOption<'op> {
     pub long: &'op str,
     pub arguments: Vec<Argument>,
     pub description: &'op str,
+    pub required: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +48,7 @@ impl<'b> CmderOption<'b> {
             long,
             description: desc,
             arguments,
+            required: false,
         }
     }
 }
@@ -58,6 +60,7 @@ impl<'d> Default for CmderOption<'d> {
             long: "",
             arguments: vec![Argument::new("", None)],
             description: "",
+            required: false,
         }
     }
 }
