@@ -6,24 +6,24 @@ use super::args::Argument;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmderOption<'op> {
-    pub short_version: &'op str,
-    pub long_version: &'op str,
+    pub short: &'op str,
+    pub long: &'op str,
     pub arguments: Vec<Argument>,
     pub description: &'op str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmderFlag<'f> {
-    pub short_version: &'f str,
-    pub long_version: &'f str,
+    pub short: &'f str,
+    pub long: &'f str,
     pub description: &'f str,
 }
 
 impl<'a> CmderFlag<'a> {
     pub(crate) fn new(short: &'a str, long: &'a str, desc: &'a str) -> Self {
         Self {
-            short_version: short,
-            long_version: long,
+            short,
+            long,
             description: desc,
         }
     }
@@ -43,8 +43,8 @@ impl<'b> CmderOption<'b> {
         }
 
         Self {
-            short_version: short,
-            long_version: long,
+            short,
+            long,
             description: desc,
             arguments,
         }
@@ -54,8 +54,8 @@ impl<'b> CmderOption<'b> {
 impl<'d> Default for CmderOption<'d> {
     fn default() -> Self {
         Self {
-            short_version: "",
-            long_version: "",
+            short: "",
+            long: "",
             arguments: vec![Argument::new("", None)],
             description: "",
         }
@@ -67,7 +67,7 @@ pub(crate) fn resolve_new_flag<'f>(list: &'f [CmderFlag], val: String) -> Option
 
     let val = val.as_str();
     for f in list {
-        if f.short_version == val || f.long_version == val {
+        if f.short == val || f.long == val {
             flag = Some(f.clone());
         }
     }
@@ -82,7 +82,7 @@ pub(crate) fn resolve_new_option<'o>(
 
     let val = val.as_str();
     for f in list {
-        if f.short_version == val || f.long_version == val {
+        if f.short == val || f.long == val {
             flag = Some(f.clone());
         }
     }
@@ -98,8 +98,8 @@ impl<'f> FormatGenerator for CmderFlag<'f> {
 
                 let mut floating = String::from("");
                 let mut leading = base
-                    .replace("{{short}}", self.short_version)
-                    .replace("{{long}}", self.long_version);
+                    .replace("{{short}}", self.short)
+                    .replace("{{long}}", self.long);
 
                 if leading.contains("{{description}}") {
                     leading = leading.replace("{{description}}", self.description);
@@ -110,15 +110,12 @@ impl<'f> FormatGenerator for CmderFlag<'f> {
                 (leading, floating)
             }
             _ => {
-                let short: String = if !self.short_version.is_empty() {
-                    self.short_version.into()
+                let short: String = if !self.short.is_empty() {
+                    self.short.into()
                 } else {
                     "  ".into()
                 };
-                (
-                    format!("{}, {}", short, self.long_version),
-                    self.description.into(),
-                )
+                (format!("{}, {}", short, self.long), self.description.into())
             }
         }
     }
@@ -133,8 +130,8 @@ impl<'f> FormatGenerator for CmderOption<'f> {
 
                 let mut floating = String::from("");
                 let mut leading = base
-                    .replace("{{short}}", self.short_version)
-                    .replace("{{long}}", self.long_version);
+                    .replace("{{short}}", self.short)
+                    .replace("{{long}}", self.long);
 
                 if base.contains("{{args}}") && !self.arguments.is_empty() {
                     let mut value = String::new();
@@ -156,8 +153,8 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 (leading, floating)
             }
             _ => {
-                let short: String = if self.short_version.is_empty() {
-                    self.short_version.into()
+                let short: String = if self.short.is_empty() {
+                    self.short.into()
                 } else {
                     "  ".into()
                 };
@@ -176,7 +173,7 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 };
 
                 (
-                    format!("{}, {} {}", short, self.long_version, args),
+                    format!("{}, {} {}", short, self.long, args),
                     self.description.into(),
                 )
             }

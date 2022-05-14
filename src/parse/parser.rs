@@ -127,13 +127,13 @@ impl<'p> Parser<'p> {
 
     // Returns option matches
     fn parse_option(&mut self, opt: CmderOption<'p>, args: Vec<String>) -> CmderResult<()> {
-        let count = self.parser_cfg.get_option_count(opt.short_version);
+        let count = self.parser_cfg.get_option_count(opt.short);
         let args = self.parse_args(&opt.arguments, args)?;
         let config = &mut self.parser_cfg;
 
-        if config.contains_option(opt.long_version) {
+        if config.contains_option(opt.long) {
             for opt_cfg in config.option_matches.iter_mut() {
-                if opt_cfg.option.long_version == opt.long_version {
+                if opt_cfg.option.long == opt.long {
                     opt_cfg.args.extend_from_slice(&args[..]);
                     opt_cfg.appearance_count += 1;
                 }
@@ -161,7 +161,7 @@ impl<'p> Parser<'p> {
             flag,
         };
 
-        if !self.parser_cfg.contains_flag(cfg.flag.short_version) {
+        if !self.parser_cfg.contains_flag(cfg.flag.short) {
             self.parser_cfg.flag_matches.push(cfg);
         }
     }

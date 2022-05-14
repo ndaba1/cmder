@@ -41,7 +41,7 @@ impl<'o> OptionsMatches<'o> {
     }
 
     pub(crate) fn contains_option(&self, option: &str) -> bool {
-        self.option.long_version == option || self.option.short_version == option
+        self.option.long == option || self.option.short == option
     }
 }
 
@@ -146,7 +146,7 @@ impl<'a> ParserMatches<'a> {
             .iter()
             .find(|f| {
                 let flag = &f.flag;
-                flag.short_version == val || flag.long_version == val
+                flag.short == val || flag.long == val
             })
             .map(|fm| fm.flag.clone())
     }
@@ -156,7 +156,7 @@ impl<'a> ParserMatches<'a> {
             .iter()
             .find(|opc| {
                 let option = &opc.option;
-                option.long_version == val || option.short_version == val
+                option.long == val || option.short == val
             })
             .map(|opm| opm.option.clone())
     }
@@ -164,14 +164,14 @@ impl<'a> ParserMatches<'a> {
     pub fn contains_flag(&self, val: &str) -> bool {
         self.flag_matches.iter().any(|f| {
             let flag = &f.flag;
-            flag.short_version == val || flag.long_version == val
+            flag.short == val || flag.long == val
         })
     }
 
     pub fn contains_option(&self, val: &str) -> bool {
         self.option_matches.iter().any(|o| {
             let op = &o.option;
-            op.short_version == val || op.long_version == val
+            op.short == val || op.long == val
         })
     }
 
@@ -181,7 +181,7 @@ impl<'a> ParserMatches<'a> {
         for fc in &self.flag_matches {
             let flag = &fc.flag;
 
-            if flag.short_version == val || flag.long_version == val {
+            if flag.short == val || flag.long == val {
                 count += 1;
             }
         }
@@ -195,7 +195,7 @@ impl<'a> ParserMatches<'a> {
         for fc in &self.option_matches {
             let flag = &fc.option;
 
-            if flag.short_version == val || flag.long_version == val {
+            if flag.short == val || flag.long == val {
                 count += 1;
             }
         }
