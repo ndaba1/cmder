@@ -41,3 +41,7 @@ name = "subcommands"
 [[bench]]
 name = "default"
 harness = false
+
+[[bench]]
+name = "inception"
+harness = false
