@@ -39,22 +39,22 @@ impl<'help> HelpWriter<'help> {
 
         if has_args {
             fmter.section("ARGS");
-            fmter.format(cmd.get_arguments().clone(), ptrn);
+            fmter.format(cmd.get_arguments(), ptrn);
         }
 
         if has_flags {
             fmter.section("FLAGS");
-            fmter.format(cmd.get_flags().clone(), ptrn);
+            fmter.format(cmd.get_flags(), ptrn);
         }
 
         if has_options {
             fmter.section("OPTIONS");
-            fmter.format(cmd.get_options().clone(), ptrn);
+            fmter.format(cmd.get_options(), ptrn);
         }
 
         if has_subcmds {
             fmter.section("SUB-COMMANDS");
-            fmter.format(cmd.get_subcommands().clone(), ptrn);
+            fmter.format(cmd.get_subcommands(), ptrn);
         }
 
         fmter.print();
