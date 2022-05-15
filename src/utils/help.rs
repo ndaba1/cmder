@@ -9,8 +9,8 @@ pub struct HelpWriter<'help> {
 }
 
 impl<'help> HelpWriter<'help> {
-    pub fn write(cmd: &'help Command<'help>, theme: Theme, ptrn: &Pattern) {
-        let mut fmter = Formatter::new(theme);
+    pub fn write(cmd: &'help Command<'help>, theme: &Theme, ptrn: &Pattern) {
+        let mut fmter = Formatter::new(theme.to_owned());
 
         // Utility vars
         let has_flags = !cmd.get_flags().is_empty();

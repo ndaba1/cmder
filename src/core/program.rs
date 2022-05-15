@@ -498,7 +498,7 @@ impl<'p> Command<'p> {
 
     // Others
     pub fn output_help(&self) {
-        HelpWriter::write(self, self.get_theme().clone(), self.get_pattern());
+        HelpWriter::write(self, self.get_theme(), self.get_pattern());
     }
 
     pub fn before_all(&mut self, cb: EventListener) {
