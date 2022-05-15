@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use crate::ui::formatter::FormatGenerator;
 
 use super::args::Argument;
