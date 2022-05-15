@@ -55,13 +55,7 @@ impl<'b> CmderOption<'b> {
 
 impl<'d> Default for CmderOption<'d> {
     fn default() -> Self {
-        Self {
-            short: "",
-            long: "",
-            arguments: vec![Argument::new("", None)],
-            description: "",
-            required: false,
-        }
+        Self::new("", "", "", &[])
     }
 }
 
@@ -178,5 +172,31 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_flag_creation() {
+        let f = CmderFlag::new("-h", "--help", "A help flag");
+
+        assert_eq!(f.short, "-h");
+        assert_eq!(f.long, "--help");
+        assert_eq!(f.description, "A help flag");
+    }
+
+    #[test]
+    fn test_options_creation() {
+        let o = CmderOption::new("-p", "--port", "Port flag", &[]);
+
+        assert_eq!(o.short, "-p");
+        assert_eq!(o.long, "--port");
+        assert_eq!(o.description, "Port flag");
+        assert_eq!(o.required, false);
+        assert_eq!(o.arguments, vec![]);
     }
 }
