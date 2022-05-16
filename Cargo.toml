@@ -39,13 +39,15 @@ name = "basic_usage"
 name = "subcommands"
 
 [[bench]]
-name = "default"
+name = "1_default"
 harness = false
+path = "benches/1_default.rs"
 
 [[bench]]
 name = "inception"
 harness = false
 
 [[bench]]
-name = "basic"
+name = "2_basic"
 harness = false
+path = "benches/2_basic.rs"
