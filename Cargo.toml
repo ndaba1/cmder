@@ -45,3 +45,7 @@ harness = false
 [[bench]]
 name = "inception"
 harness = false
+
+[[bench]]
+name = "basic"
+harness = false
