@@ -142,9 +142,9 @@ impl Formatter {
         self.add(Designation::Other, "\n");
     }
 
-    pub fn format<L, T>(&mut self, args: L, ptrn: Pattern)
+    pub fn format<'a, L, T: 'a>(&mut self, args: L, ptrn: &Pattern)
     where
-        L: IntoIterator<Item = T>,
+        L: IntoIterator<Item = &'a T>,
         T: FormatGenerator,
     {
         let mut values = vec![];

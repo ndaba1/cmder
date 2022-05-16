@@ -1,29 +1,28 @@
-#![allow(unused)]
-
 use crate::ui::formatter::FormatGenerator;
 
 use super::args::Argument;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmderOption<'op> {
-    pub short_version: &'op str,
-    pub long_version: &'op str,
+    pub short: &'op str,
+    pub long: &'op str,
     pub arguments: Vec<Argument>,
     pub description: &'op str,
+    pub required: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmderFlag<'f> {
-    pub short_version: &'f str,
-    pub long_version: &'f str,
+    pub short: &'f str,
+    pub long: &'f str,
     pub description: &'f str,
 }
 
 impl<'a> CmderFlag<'a> {
     pub(crate) fn new(short: &'a str, long: &'a str, desc: &'a str) -> Self {
         Self {
-            short_version: short,
-            long_version: long,
+            short,
+            long,
             description: desc,
         }
     }
@@ -43,46 +42,39 @@ impl<'b> CmderOption<'b> {
         }
 
         Self {
-            short_version: short,
-            long_version: long,
+            short,
+            long,
             description: desc,
             arguments,
+            required: false,
         }
     }
 }
 
 impl<'d> Default for CmderOption<'d> {
     fn default() -> Self {
-        Self {
-            short_version: "",
-            long_version: "",
-            arguments: vec![Argument::new("", None)],
-            description: "",
-        }
+        Self::new("", "", "", &[])
     }
 }
 
-pub(crate) fn resolve_new_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag<'f>> {
+pub(crate) fn resolve_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag<'f>> {
     let mut flag = None;
 
     let val = val.as_str();
     for f in list {
-        if f.short_version == val || f.long_version == val {
+        if f.short == val || f.long == val {
             flag = Some(f.clone());
         }
     }
     flag
 }
 
-pub(crate) fn resolve_new_option<'o>(
-    list: &'o [CmderOption],
-    val: String,
-) -> Option<CmderOption<'o>> {
+pub(crate) fn resolve_option<'o>(list: &'o [CmderOption], val: String) -> Option<CmderOption<'o>> {
     let mut flag = None;
 
     let val = val.as_str();
     for f in list {
-        if f.short_version == val || f.long_version == val {
+        if f.short == val || f.long == val {
             flag = Some(f.clone());
         }
     }
@@ -98,8 +90,8 @@ impl<'f> FormatGenerator for CmderFlag<'f> {
 
                 let mut floating = String::from("");
                 let mut leading = base
-                    .replace("{{short}}", self.short_version)
-                    .replace("{{long}}", self.long_version);
+                    .replace("{{short}}", self.short)
+                    .replace("{{long}}", self.long);
 
                 if leading.contains("{{description}}") {
                     leading = leading.replace("{{description}}", self.description);
@@ -110,15 +102,12 @@ impl<'f> FormatGenerator for CmderFlag<'f> {
                 (leading, floating)
             }
             _ => {
-                let short: String = if !self.short_version.is_empty() {
-                    self.short_version.into()
+                let short: String = if !self.short.is_empty() {
+                    self.short.into()
                 } else {
                     "  ".into()
                 };
-                (
-                    format!("{}, {}", short, self.long_version),
-                    self.description.into(),
-                )
+                (format!("{}, {}", short, self.long), self.description.into())
             }
         }
     }
@@ -133,8 +122,8 @@ impl<'f> FormatGenerator for CmderOption<'f> {
 
                 let mut floating = String::from("");
                 let mut leading = base
-                    .replace("{{short}}", self.short_version)
-                    .replace("{{long}}", self.long_version);
+                    .replace("{{short}}", self.short)
+                    .replace("{{long}}", self.long);
 
                 if base.contains("{{args}}") && !self.arguments.is_empty() {
                     let mut value = String::new();
@@ -156,8 +145,8 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 (leading, floating)
             }
             _ => {
-                let short: String = if self.short_version.is_empty() {
-                    self.short_version.into()
+                let short: String = if self.short.is_empty() {
+                    self.short.into()
                 } else {
                     "  ".into()
                 };
@@ -176,10 +165,36 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 };
 
                 (
-                    format!("{}, {} {}", short, self.long_version, args),
+                    format!("{}, {} {}", short, self.long, args),
                     self.description.into(),
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_flag_creation() {
+        let f = CmderFlag::new("-h", "--help", "A help flag");
+
+        assert_eq!(f.short, "-h");
+        assert_eq!(f.long, "--help");
+        assert_eq!(f.description, "A help flag");
+    }
+
+    #[test]
+    fn test_options_creation() {
+        let o = CmderOption::new("-p", "--port", "Port flag", &[]);
+
+        assert_eq!(o.short, "-p");
+        assert_eq!(o.long, "--port");
+        assert_eq!(o.description, "Port flag");
+        assert_eq!(o.required, false);
+        assert_eq!(o.arguments, vec![]);
     }
 }

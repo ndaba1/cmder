@@ -31,19 +31,6 @@ impl Argument {
             variadic,
         }
     }
-
-    /// A method that takes in a vector of arguments, determines and returns which of the arguments are required.
-    pub fn get_required_args(list: &[Self]) -> Vec<Self> {
-        let mut req = vec![];
-
-        for arg in list {
-            if arg.required {
-                req.push(arg.clone())
-            }
-        }
-
-        req
-    }
 }
 
 /// Cleans an argument by removing any brackets and determining whether the argument is required is not.
@@ -96,5 +83,20 @@ impl FormatGenerator for Argument {
             }
             _ => (self.literal.clone(), self.description.clone().unwrap()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_arg_creation() {
+        let a = Argument::new("<test-app>", Some("Dummy help str".into()));
+
+        assert!(a.required);
+        assert!(!a.variadic);
+        assert_eq!(a.name, "test_app");
+        assert_eq!(a.description, Some("Dummy help str".into()));
     }
 }

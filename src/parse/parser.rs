@@ -7,7 +7,7 @@ use crate::core::EventConfig;
 use crate::core::{CmderError, CmderResult};
 use crate::Event;
 
-use super::flags::{resolve_new_flag, resolve_new_option, CmderFlag, CmderOption};
+use super::flags::{resolve_flag, resolve_option, CmderFlag, CmderOption};
 use super::matches::{ArgsMatches, CommandMatches, FlagsMatches, OptionsMatches, ParserMatches};
 use super::Argument;
 
@@ -54,22 +54,23 @@ impl<'p> Parser<'p> {
                 continue;
             } else if arg.starts_with('-') {
                 // It is either a flag, an option, or '--', or unknown option/flag
-                if let Some(flag) = resolve_new_flag(cmd.get_flags(), arg.clone()) {
+                if let Some(flag) = resolve_flag(cmd.get_flags(), arg.clone()) {
                     // parse flag
                     if !self.allow_trailing_values {
                         self.marked_args[cursor_index].1 = true;
                         self.parse_flag(flag)
                     }
-                } else if let Some(opt) = resolve_new_option(cmd.get_options(), arg.clone()) {
+                } else if let Some(opt) = resolve_option(cmd.get_options(), arg.clone()) {
                     // parse option
                     self.marked_args[cursor_index].1 = true;
+                    self.cursor_index += 1;
                     // Parse any args following option
                     self.parse_option(opt, args[(cursor_index + 1)..].to_vec())?
                 } else if arg.contains('=') && !self.allow_trailing_values {
                     // Split the arg into key and value
                     let parts = arg.split('=').collect::<Vec<_>>();
 
-                    if let Some(opt) = resolve_new_option(cmd.get_options(), parts[0].into()) {
+                    if let Some(opt) = resolve_option(cmd.get_options(), parts[0].into()) {
                         // parse option using parts[1]
                         let mut temp_args: Vec<String> = vec![parts[1].into()];
                         temp_args.extend_from_slice(&args[(cursor_index + 1)..]);
@@ -126,13 +127,13 @@ impl<'p> Parser<'p> {
 
     // Returns option matches
     fn parse_option(&mut self, opt: CmderOption<'p>, args: Vec<String>) -> CmderResult<()> {
-        let count = self.parser_cfg.get_option_count(opt.short_version);
+        let count = self.parser_cfg.get_option_count(opt.short);
         let args = self.parse_args(&opt.arguments, args)?;
         let config = &mut self.parser_cfg;
 
-        if config.contains_option(opt.long_version) {
+        if config.contains_option(opt.long) {
             for opt_cfg in config.option_matches.iter_mut() {
-                if opt_cfg.option.long_version == opt.long_version {
+                if opt_cfg.option.long == opt.long {
                     opt_cfg.args.extend_from_slice(&args[..]);
                     opt_cfg.appearance_count += 1;
                 }
@@ -160,7 +161,7 @@ impl<'p> Parser<'p> {
             flag,
         };
 
-        if !self.parser_cfg.contains_flag(cfg.flag.short_version) {
+        if !self.parser_cfg.contains_flag(cfg.flag.short) {
             self.parser_cfg.flag_matches.push(cfg);
         }
     }

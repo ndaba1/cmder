@@ -1,6 +1,5 @@
 use crate::{Event, Pattern, PredefinedThemes, Theme};
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct ProgramSettings {
     pub(crate) ignore_all_errors: bool,
@@ -32,7 +31,6 @@ impl Default for ProgramSettings {
     }
 }
 
-#[allow(unused)]
 pub enum Setting {
     IgnoreAllErrors(bool),
     ShowHelpOnAllErrors(bool),
