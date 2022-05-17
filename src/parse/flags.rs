@@ -150,7 +150,7 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 (leading, floating)
             }
             _ => {
-                let short: String = if self.short.is_empty() {
+                let short: String = if !self.short.is_empty() {
                     format!("{},", self.short)
                 } else {
                     "  ".into()
