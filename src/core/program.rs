@@ -253,6 +253,34 @@ impl<'p> Command<'p> {
         self
     }
 
+    fn _generate_option(&mut self, values: Vec<&'p str>, help: &'p str, r: bool) {
+        let mut short = "";
+        let mut long = "";
+        let mut args = vec![];
+
+        for v in &values {
+            if v.starts_with("--") {
+                long = v;
+            } else if v.starts_with('-') {
+                short = v;
+            } else {
+                args.push(*v);
+            }
+        }
+
+        let option = CmderOption::new(short, long, help, &args[..]).required(r);
+        if !self.options.contains(&option) {
+            self.options.push(option)
+        }
+    }
+
+    pub fn required(&mut self, val: &'p str, help: &'p str) -> &mut Self {
+        let values: Vec<_> = val.split_whitespace().collect();
+        self._generate_option(values, help, true);
+
+        self
+    }
+
     pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
 
