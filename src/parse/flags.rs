@@ -49,6 +49,11 @@ impl<'b> CmderOption<'b> {
             required: false,
         }
     }
+
+    pub(crate) fn required(mut self, v: bool) -> Self {
+        self.required = v;
+        self
+    }
 }
 
 impl<'d> Default for CmderOption<'d> {
