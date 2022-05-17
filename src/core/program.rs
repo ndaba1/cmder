@@ -299,12 +299,7 @@ impl<'p> Command<'p> {
         }
 
         match values.len() {
-            val if val > 2 => {
-                let option = CmderOption::new(short, long, help, &args[..]);
-                if !self.options.contains(&option) {
-                    self.options.push(option)
-                }
-            }
+            val if val > 2 => self._generate_option(values, help, false),
             _ => {
                 let flag = CmderFlag::new(short, long, help);
                 if !self.flags.contains(&flag) {
