@@ -256,20 +256,33 @@ impl<'p> Command<'p> {
     pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
 
-        match values.len() {
-            2 => {
-                let flag = CmderFlag::new(values[0], values[1], help);
-                if !self.flags.contains(&flag) {
-                    self.flags.push(flag)
-                }
+        let mut short = "";
+        let mut long = "";
+        let mut args = vec![];
+
+        for v in &values {
+            if v.starts_with("--") {
+                long = v;
+            } else if v.starts_with('-') {
+                short = v;
+            } else {
+                args.push(*v);
             }
+        }
+
+        match values.len() {
             val if val > 2 => {
-                let option = CmderOption::new(values[0], values[1], help, &values[2..]);
+                let option = CmderOption::new(short, long, help, &args[..]);
                 if !self.options.contains(&option) {
                     self.options.push(option)
                 }
             }
-            _ => {}
+            _ => {
+                let flag = CmderFlag::new(short, long, help);
+                if !self.flags.contains(&flag) {
+                    self.flags.push(flag)
+                }
+            }
         }
 
         self
