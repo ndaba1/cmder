@@ -118,6 +118,16 @@ impl<'p> Parser<'p> {
             }
         }
 
+        if !self.parser_cfg.contains_flag("--help") {
+            for opt in self.cmd.get_options() {
+                if opt.required && !self.parser_cfg.contains_option(opt.short) {
+                    // TODO: Throw missing option error
+                    eprintln!("Missing required option!!!");
+                    std::process::exit(100);
+                }
+            }
+        }
+
         Ok(self.parser_cfg.clone())
     }
 
