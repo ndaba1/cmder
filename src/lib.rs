@@ -3,20 +3,56 @@
 //! This crate is relatively similar in syntax to the said library and is easy to get started with. It presents a builder interface to work with and can easily be extended to suit your needs.
 //! The crate only offers a builder interface, no derive features, if you're looking such features or something more powerful, you should probably check out `clap`.
 //!
-//! There are three main constructs you need to be aware of when using this crate. `Program`, `Event` and `Cmd`. A program is what you actually create. An instance of your, well program, It contains a few fields, some for metadata such as `version`, `author` and `about` and the most important field, the `cmds` field which is a vector of `Cmds`
-//! .
-//! Cmds on the other hand are exactly what they sound like. They contain all the functionality for a given command.
-//! Events are a construct that can be used to extend the program. As will be demonstrated below.
+//! Constructs used within the crate include:
+//! - Command, which is exactly what it sounds like
+//! - Program which is a command marked as the entrypoint
+//! - Flags and Options(flags that take arguments)
 //!
-//! There are other constructs such as `Themes` and `Patterns` that can also be ussed to extend and customize the default program behavior.
+//! The following is a full-fleged example on crate usage:
+//! ```
+//! use cmder::{Program, Event, Setting, Pattern, PredefinedThemes};
 //!
+//! let mut program = Program::new();
+//!
+//! program
+//!     .author("vndaba")
+//!     .description("An example CLI")
+//!     .version("0.1.0")
+//!     .bin_name("example");
+//!
+//! // Subcommands
+//! program
+//!     .subcommand("demo")
+//!     .argument("<value>", "Some required value")
+//!     .alias("d")
+//!     .option("-f", "Some flag")
+//!     .option("-n --name <value>", "Some option")
+//!     .description("A demo subcommand")
+//!     .action(|matches|{dbg!(matches);});
+//!
+//! // ...
+//!
+//! // Event listeners
+//! program.before_all(|cfg| {
+//!     let p_ref = cfg.get_program();
+//!     println!("This program was authored by: {}", p_ref.get_author())
+//! });
+//!
+//! // ...
+//!
+//! // Program settings
+//! program.set(Setting::ShowHelpOnAllErrors(true));
+//! program.set(Setting::ChoosePredefinedTheme(PredefinedThemes::Colorful));
+//! program.set(Setting::SetProgramPattern(Pattern::Standard));
+//! program.set(Setting::OverrideAllDefaultListeners(true));
+//!
+//! program.parse();
+//! ```
 
-//! Themes can also be customized by defining your own color palette to be used when printing out information.
-
-/// The parser modules contains all functionality for parsing arguments at the command level. It contains some submodules all involved in parsing arguments and flags.
+/// The parser modules contains all functionality for parsing arguments . It contains some submodules all involved in parsing arguments and flags.
 mod parse;
 
-/// A module housing all the core functionality of the library such as events, the program module itself, settings and other core functionality
+/// A module housing all the core functionality of the library such as events, errors, settings and other core functionality
 mod core;
 
 /// A module to house some utilities used by the crate itself.

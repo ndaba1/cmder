@@ -18,6 +18,8 @@ use super::{
 
 type Callback = fn(ParserMatches) -> ();
 
+/// Similar to the Command struct except commands created via the `Program::new()` method are marked as the root command and also contain the version flag automatically.
+/// Exists due to maintain some familiarity with earlier versions of the crate
 pub struct Program {}
 
 impl Program {
@@ -35,6 +37,7 @@ impl Program {
     }
 }
 
+/// The gist of the crate. Create instances of the program struct to chain to them all available methods. Event the program created is itself a command.
 #[derive(Clone)]
 pub struct Command<'p> {
     name: String,
@@ -60,19 +63,26 @@ pub struct Command<'p> {
 impl<'d> Debug for Command<'d> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "name: {},",
+            "
+            name: {},
+            alias: {},
+            args: {:#?},
+            flags: {:#?},
+            options: {:#?},
+            subcmds: {:#?},
+            ",
             self.name,
-            // self.alias.unwrap_or(""),
-            // self.arguments,
-            // self.flags,
-            // self.options,
-            // self.cmd_path,
-            // self.subcommands
+            self.alias.unwrap_or(""),
+            self.arguments,
+            self.flags,
+            self.options,
+            self.subcommands,
         ))
     }
 }
 
 impl<'p> Command<'p> {
+    /// Simply creates a new instance of a command with the help flag added to it
     pub fn new(name: &'p str) -> Self {
         Self {
             name: name.to_string(),
@@ -97,16 +107,20 @@ impl<'p> Command<'p> {
     }
 
     // Root command options
+
+    /// Sets the author of the program
     pub fn author(&mut self, author: &'p str) -> &mut Self {
         self.author = Some(author);
         self
     }
 
+    /// Simply sets the version of the program
     pub fn version(&mut self, val: &'p str) -> &mut Self {
         self.version = Some(val);
         self
     }
 
+    /// Sets the command name but only for the root command(program)
     pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
         if self.is_root {
             self.name = val.into();
@@ -115,56 +129,71 @@ impl<'p> Command<'p> {
     }
 
     // Getters
+
+    /// Returns the author of the program or empty value if none is set
     pub fn get_author(&self) -> &str {
         self.author.unwrap_or("")
     }
 
+    /// Returns the provided version of the program or empty string slice
     pub fn get_version(&self) -> &str {
         self.version.unwrap_or("")
     }
 
+    /// Returns configured theme of the program
     pub fn get_theme(&self) -> &Theme {
         &self.theme
     }
 
+    /// Returns configured program pattern
     pub fn get_pattern(&self) -> &Pattern {
         &self.pattern
     }
 
+    /// Getter for the command name
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
 
+    /// A getter for the command alias or empty value if none is found
     pub fn get_alias(&self) -> &str {
         self.alias.unwrap_or("")
     }
 
+    /// Returns a reference to a vector containing all the flags of a given command
     pub fn get_flags(&self) -> &Vec<CmderFlag> {
         &self.flags
     }
 
+    /// Returns the command description or empty string slice
     pub fn get_description(&self) -> &str {
         self.description.unwrap_or("")
     }
 
+    /// Returns a ref to a vector containing all configured command options
     pub fn get_options(&self) -> &Vec<CmderOption> {
         &self.options
     }
 
+    /// Returns borrowed vectot with command arguments
     pub fn get_arguments(&self) -> &Vec<Argument> {
         &self.arguments
     }
 
+    /// Returns the vector of subcommands of a command
     pub fn get_subcommands(&self) -> &Vec<Self> {
         &self.subcommands
     }
 
+    /// Returns the parent of a given command if any
     pub fn get_parent(&self) -> Option<&Rc<Self>> {
         self.parent.as_ref()
     }
 
+    /// Returns the usage string of a command
     pub fn get_usage_str(&self) -> String {
         let mut parent = self.get_parent();
+
         let mut usage = vec![self.get_name()];
         let mut usage_str = String::new();
 
@@ -183,6 +212,7 @@ impl<'p> Command<'p> {
         usage_str.trim().into()
     }
 
+    /// A utility method used to check if a subcommand is contained within a command and returns a reference to said subcommand if found
     pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
         self.subcommands
             .iter()
@@ -209,10 +239,6 @@ impl<'p> Command<'p> {
         }
     }
 
-    fn _add_sub_cmd(&mut self, sub_cmd: Self) {
-        self.subcommands.push(sub_cmd);
-    }
-
     fn _add_parent(&mut self, parent: Rc<Self>) -> &mut Self {
         self.parent = Some(parent);
         self
@@ -221,16 +247,19 @@ impl<'p> Command<'p> {
     #[deprecated(note = "Subcmds now built automatically")]
     pub fn build(&mut self) {}
 
+    /// Sets the alias of a given command
     pub fn alias(&mut self, val: &'p str) -> &mut Self {
         self.alias = Some(val);
         self
     }
 
+    /// Sets the description or help string of a command
     pub fn description(&mut self, val: &'p str) -> &mut Self {
         self.description = Some(val);
         self
     }
 
+    /// Adds a new subcommand to an instance of a command
     pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
         let parent = Rc::new(self.to_owned());
 
@@ -238,6 +267,7 @@ impl<'p> Command<'p> {
         self.subcommands.last_mut().unwrap()._add_parent(parent)
     }
 
+    /// Used to register a new argument, receives the name of the argument and its help string
     pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
         let arg = Argument::new(val, Some(help.to_string()));
 
@@ -248,46 +278,88 @@ impl<'p> Command<'p> {
         self
     }
 
+    /// A method used to configure the function to be invoked when the command it is chained to is matched
     pub fn action(&mut self, cb: Callback) -> &mut Self {
         self.callback = Some(cb);
         self
     }
 
+    fn _generate_option(&mut self, values: Vec<&'p str>, help: &'p str, r: bool) {
+        let mut short = "";
+        let mut long = "";
+        let mut args = vec![];
+
+        for v in &values {
+            if v.starts_with("--") {
+                long = v;
+            } else if v.starts_with('-') {
+                short = v;
+            } else {
+                args.push(*v);
+            }
+        }
+
+        let option = CmderOption::new(short, long, help, &args[..]).required(r);
+        if !self.options.contains(&option) {
+            self.options.push(option)
+        }
+    }
+
+    /// Similar to the .option() method but it is instead used to register options that are required
+    pub fn required(&mut self, val: &'p str, help: &'p str) -> &mut Self {
+        let values: Vec<_> = val.split_whitespace().collect();
+        self._generate_option(values, help, true);
+
+        self
+    }
+
+    /// Registers a new option or flag depending on the values passed along with the help string for the flag or option
     pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
 
-        match values.len() {
-            2 => {
-                let flag = CmderFlag::new(values[0], values[1], help);
-                if !self.flags.contains(&flag) {
-                    self.flags.push(flag)
-                }
+        let mut short = "";
+        let mut long = "";
+        let mut args = vec![];
+
+        for v in &values {
+            if v.starts_with("--") {
+                long = v;
+            } else if v.starts_with('-') {
+                short = v;
+            } else {
+                args.push(*v);
             }
-            val if val > 2 => {
-                let option = CmderOption::new(values[0], values[1], help, &values[2..]);
-                if !self.options.contains(&option) {
-                    self.options.push(option)
-                }
-            }
-            _ => {}
+        }
+
+        if args.is_empty() {
+            let flag = CmderFlag::new(short, long, help);
+            if !self.flags.contains(&flag) {
+                self.flags.push(flag)
+            };
+        } else {
+            self._generate_option(values, help, false);
         }
 
         self
     }
 
     // Settings
+
+    /// A method used to register a new listener to the program. It takes in a closure that will be invoked when the given event occurs
     pub fn on(&mut self, event: Event, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(event, cb, 0)
         }
     }
 
-    pub fn emit(&self, cfg: EventConfig) {
+    /// Used to emit events and thus trigger the callbacks
+    pub(crate) fn emit(&self, cfg: EventConfig) {
         if let Some(emitter) = &self.emitter {
             emitter.emit(cfg);
         }
     }
 
+    /// A global method used to configure all settings of the program. This settings are defined in the `Setting` enum
     pub fn set(&mut self, setting: Setting) {
         let s = &mut self.settings;
 
@@ -486,39 +558,47 @@ impl<'p> Command<'p> {
         }
     }
 
+    /// Builds the command and parses the args passed to it automatically
     pub fn parse(&'p mut self) {
         let args = env::args().collect::<Vec<_>>();
         self.__parse(args);
     }
 
+    /// Builds the command and parses from the vector of string slices passed to it
     pub fn parse_from(&'p mut self, list: Vec<&str>) {
         let args = list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
         self.__parse(args);
     }
 
     // Others
+
+    /// Prints out help information for a command
     pub fn output_help(&self) {
         HelpWriter::write(self, self.get_theme(), self.get_pattern());
     }
 
+    /// Method used to register a listener before all events
     pub fn before_all(&mut self, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
             emitter.insert_before_all(cb)
         }
     }
 
+    /// Register a listener after all other listeners
     pub fn after_all(&mut self, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
             emitter.insert_after_all(cb)
         }
     }
 
+    /// Register a listener only before help is printed out
     pub fn before_help(&mut self, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(Event::OutputHelp, cb, -4)
         }
     }
 
+    /// Register a listener to be invoked after help is printed out
     pub fn after_help(&mut self, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(Event::OutputHelp, cb, 1)
@@ -595,7 +675,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_program() {
+    fn test_prog_creation() {
         let mut program = Program::new();
 
         assert!(program.is_root);
@@ -622,7 +702,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_cmd() {
+    fn test_cmd_creation() {
         let cmd = Command::new("test2");
 
         assert!(!cmd.is_root);

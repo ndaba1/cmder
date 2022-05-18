@@ -1,6 +1,6 @@
 [package]
 name = "cmder"
-version = "0.5.2"
+version = "1.0.0-beta-1"
 edition = "2021"
 description="A simple, lightweight, command line argument parser for rust codebases"
 repository="https://github.com/ndaba1/cmder.git"
@@ -38,16 +38,24 @@ name = "basic_usage"
 [[example]]
 name = "subcommands"
 
+[[example]]
+name = "listeners"
+
 [[bench]]
 name = "1_default"
 harness = false
 path = "benches/1_default.rs"
 
 [[bench]]
-name = "inception"
-harness = false
-
-[[bench]]
 name = "2_basic"
 harness = false
 path = "benches/2_basic.rs"
+
+[[bench]]
+name = "3_standard"
+harness = false
+path = "benches/3_standard.rs"
+
+[[bench]]
+name = "inception"
+harness = false

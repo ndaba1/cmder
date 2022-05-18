@@ -27,3 +27,5 @@ let theme = Theme {
 ```
 
 The colors are re-exported from `termcolor`. You could also use the `construct_theme!()` macro which is easier to use.
+
+To add a new predefined theme, add a new associated method for the `Theme` struct which should return your newly constructed theme. After doing so, add a new variant to the Predefined themes struct. Finally, check out the set() method in the program module and configure the newly created theme to be returned when it is matched.

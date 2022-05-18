@@ -49,6 +49,11 @@ impl<'b> CmderOption<'b> {
             required: false,
         }
     }
+
+    pub(crate) fn required(mut self, v: bool) -> Self {
+        self.required = v;
+        self
+    }
 }
 
 impl<'d> Default for CmderOption<'d> {
@@ -103,11 +108,11 @@ impl<'f> FormatGenerator for CmderFlag<'f> {
             }
             _ => {
                 let short: String = if !self.short.is_empty() {
-                    self.short.into()
+                    format!("{},", self.short)
                 } else {
                     "  ".into()
                 };
-                (format!("{}, {}", short, self.long), self.description.into())
+                (format!("{} {}", short, self.long), self.description.into())
             }
         }
     }
@@ -145,8 +150,8 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 (leading, floating)
             }
             _ => {
-                let short: String = if self.short.is_empty() {
-                    self.short.into()
+                let short: String = if !self.short.is_empty() {
+                    format!("{},", self.short)
                 } else {
                     "  ".into()
                 };
@@ -165,7 +170,7 @@ impl<'f> FormatGenerator for CmderOption<'f> {
                 };
 
                 (
-                    format!("{}, {} {}", short, self.long, args),
+                    format!("{} {} {}", short, self.long, args),
                     self.description.into(),
                 )
             }

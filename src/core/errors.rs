@@ -2,7 +2,9 @@
 
 use std::fmt;
 
-use crate::Event;
+use crate::{Command, Event};
+
+use super::EventConfig;
 
 #[derive(Debug, Clone)]
 pub enum CmderError {
@@ -13,15 +15,28 @@ pub enum CmderError {
     UnresolvedArgument(Vec<String>),      // exit code 25
 }
 
-pub struct CmderErrorr {
-    kind: Event,
-    message: String,
-    help: String,
-    args: Vec<String>,
-    exit_code: usize,
-}
+// #[derive(Debug, Clone)]
+// pub struct CmderErrorr<'err> {
+//     pub(crate) kind: Event,
+//     pub(crate) message: String,
+//     pub(crate) help: &'err str,
+//     pub(crate) args: Vec<String>,
+//     pub(crate) exit_code: usize,
+//     pub(crate) matched_cmd: Option<&'err Command<'err>>,
+// }
 
 pub type CmderResult<T, E = CmderError> = Result<T, E>;
+
+// impl<'e> Into<EventConfig<'e>> for CmderErrorr<'e> {
+//     fn into(self) -> EventConfig<'e> {
+//         EventConfig::new(self.matched_cmd.unwrap())
+//             .info(self.help)
+//             .exit_code(self.exit_code)
+//             .error_str(self.message)
+//             .arg_c(self.args.len())
+//             .args(self.args)
+//     }
+// }
 
 impl From<CmderError> for String {
     fn from(err: CmderError) -> Self {
