@@ -60,14 +60,20 @@ pub struct Command<'p> {
 impl<'d> Debug for Command<'d> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "name: {},",
+            "
+            name: {},
+            alias: {},
+            args: {:#?},
+            flags: {:#?},
+            options: {:#?},
+            subcmds: {:#?},
+            ",
             self.name,
-            // self.alias.unwrap_or(""),
-            // self.arguments,
-            // self.flags,
-            // self.options,
-            // self.cmd_path,
-            // self.subcommands
+            self.alias.unwrap_or(""),
+            self.arguments,
+            self.flags,
+            self.options,
+            self.subcommands,
         ))
     }
 }
@@ -165,6 +171,7 @@ impl<'p> Command<'p> {
 
     pub fn get_usage_str(&self) -> String {
         let mut parent = self.get_parent();
+
         let mut usage = vec![self.get_name()];
         let mut usage_str = String::new();
 
@@ -207,10 +214,6 @@ impl<'p> Command<'p> {
                 self.arguments.push(temp);
             }
         }
-    }
-
-    fn _add_sub_cmd(&mut self, sub_cmd: Self) {
-        self.subcommands.push(sub_cmd);
     }
 
     fn _add_parent(&mut self, parent: Rc<Self>) -> &mut Self {
