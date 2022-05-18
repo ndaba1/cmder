@@ -71,7 +71,7 @@ dependencies = [
 
 [[package]]
 name = "cmder"
-version = "0.5.2"
+version = "1.0.0-beta-1"
 dependencies = [
  "criterion",
  "termcolor",
