@@ -633,7 +633,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_program() {
+    fn test_prog_creation() {
         let mut program = Program::new();
 
         assert!(program.is_root);
@@ -660,7 +660,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_cmd() {
+    fn test_cmd_creation() {
         let cmd = Command::new("test2");
 
         assert!(!cmd.is_root);
