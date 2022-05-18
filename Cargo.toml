@@ -44,10 +44,15 @@ harness = false
 path = "benches/1_default.rs"
 
 [[bench]]
-name = "inception"
-harness = false
-
-[[bench]]
 name = "2_basic"
 harness = false
 path = "benches/2_basic.rs"
+
+[[bench]]
+name = "3_standard"
+harness = false
+path = "benches/3_standard.rs"
+
+[[bench]]
+name = "inception"
+harness = false
