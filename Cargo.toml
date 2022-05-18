@@ -38,6 +38,9 @@ name = "basic_usage"
 [[example]]
 name = "subcommands"
 
+[[example]]
+name = "listeners"
+
 [[bench]]
 name = "1_default"
 harness = false
