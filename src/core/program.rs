@@ -301,14 +301,13 @@ impl<'p> Command<'p> {
             }
         }
 
-        match values.len() {
-            val if val > 2 => self._generate_option(values, help, false),
-            _ => {
-                let flag = CmderFlag::new(short, long, help);
-                if !self.flags.contains(&flag) {
-                    self.flags.push(flag)
-                }
-            }
+        if args.is_empty() {
+            let flag = CmderFlag::new(short, long, help);
+            if !self.flags.contains(&flag) {
+                self.flags.push(flag)
+            };
+        } else {
+            self._generate_option(values, help, false);
         }
 
         self
