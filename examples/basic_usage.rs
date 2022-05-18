@@ -7,7 +7,8 @@ fn main() {
         .author("vndaba")
         .description("A simple demo cli")
         .bin_name("demo")
-        .version("0.1.0");
+        .version("0.1.0")
+        .required("-v --value <some-val>", "some required arg");
 
     program
         .subcommand("greet")
