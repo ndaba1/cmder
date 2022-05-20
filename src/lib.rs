@@ -7,6 +7,8 @@
 //! - Command, which is exactly what it sounds like
 //! - Program which is a command marked as the entrypoint
 //! - Flags and Options(flags that take arguments)
+//! - Themes that control the color choices used in the program
+//! - Patterns which control how output is formatted on the terminal
 //!
 //! The following is a full-fleged example on crate usage:
 //! ```
