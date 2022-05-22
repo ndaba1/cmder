@@ -190,6 +190,11 @@ impl<'p> Command<'p> {
         self.parent.as_ref()
     }
 
+    /// Returns the more info value of a command
+    pub fn get_cmd_info(&self) -> &str {
+        self.more_info.unwrap_or("")
+    }
+
     /// Returns the usage string of a command
     pub fn get_usage_str(&self) -> String {
         let mut parent = self.get_parent();
@@ -303,6 +308,12 @@ impl<'p> Command<'p> {
         if !self.options.contains(&option) {
             self.options.push(option)
         }
+    }
+
+    /// A method to add more information to be printed with the help information of a command
+    pub fn info(&mut self, val: &'p str) -> &mut Self {
+        self.more_info = Some(val);
+        self
     }
 
     /// Similar to the .option() method but it is instead used to register options that are required
