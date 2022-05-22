@@ -71,10 +71,8 @@
 //!    help                 A subcommand used for printing out help
 //! ```
 //!
-//! This is the default pattern used by the program but can easily be changed as follows:
-//! ```rust no_run
-//! program.set(Setting::SetProgramPattern(Pattern::Standard))
-//! ```
+//! This is the default pattern used by the program but can easily be changed by setting the program pattern to a different value.
+//!
 //! This will cause output to be formatted as follows:
 //! ```bash
 //! $ cargo r -q --example subcommands -- -h
