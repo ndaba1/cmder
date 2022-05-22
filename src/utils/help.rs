@@ -1,14 +1,8 @@
-#![allow(unused)]
+use crate::{core::Command, ui::formatter::Pattern, Designation, Formatter, Theme};
 
-use crate::{core::Command, ui::formatter::Pattern, Designation, Event, Formatter, Theme};
+pub struct HelpWriter {}
 
-pub struct HelpWriter<'help> {
-    theme: Theme,
-    pattern: Pattern,
-    cmd: &'help Command<'help>,
-}
-
-impl<'help> HelpWriter<'help> {
+impl<'help> HelpWriter {
     pub fn write(cmd: &'help Command<'help>, theme: &Theme, ptrn: &Pattern) {
         let mut fmter = Formatter::new(theme.to_owned());
 
