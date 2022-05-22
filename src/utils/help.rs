@@ -17,6 +17,7 @@ impl<'help> HelpWriter<'help> {
         let has_args = !cmd.get_arguments().is_empty();
         let has_options = !cmd.get_options().is_empty();
         let has_subcmds = !cmd.get_subcommands().is_empty();
+        let has_info = !cmd.get_cmd_info().is_empty();
 
         use Designation::*;
 
@@ -55,6 +56,11 @@ impl<'help> HelpWriter<'help> {
         if has_subcmds {
             fmter.section("SUB-COMMANDS");
             fmter.format(cmd.get_subcommands(), ptrn);
+        }
+
+        if has_info {
+            fmter.section("INFO");
+            fmter.add(Description, cmd.get_cmd_info());
         }
 
         fmter.print();
