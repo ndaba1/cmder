@@ -99,6 +99,8 @@
 //!
 //!
 //! ```
+//!
+//! You can also create your own custom-defined pattern. Refer to the `custom_pattern` example to see how this can be achieved.
 
 /// The parser modules contains all functionality for parsing arguments . It contains some submodules all involved in parsing arguments and flags.
 mod parse;
