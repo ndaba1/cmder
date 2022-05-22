@@ -70,6 +70,35 @@
 //!    container            A command housing all subcommands for containers
 //!    help                 A subcommand used for printing out help
 //! ```
+//!
+//! This is the default pattern used by the program but can easily be changed as follows:
+//! ```rust no_run
+//! program.set(Setting::SetProgramPattern(Pattern::Standard))
+//! ```
+//! This will cause output to be formatted as follows:
+//! ```bash
+//! $ cargo r -q --example subcommands -- -h
+//! An example of a program with subcommands
+//!
+//! USAGE:
+//!     docker [OPTIONS] <SUBCOMMAND>
+//!
+//! FLAGS:
+//!     -v, --version
+//!       Print out version information
+//!     -h, --help
+//!       Print out help information
+//!
+//! SUB-COMMANDS:
+//!     image
+//!       A command housing all the subcommands for image functionality
+//!     container
+//!       A command housing all subcommands for containers
+//!     help
+//!       A subcommand used for printing out help
+//!
+//!
+//! ```
 
 /// The parser modules contains all functionality for parsing arguments . It contains some submodules all involved in parsing arguments and flags.
 mod parse;
