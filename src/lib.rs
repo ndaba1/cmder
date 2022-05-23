@@ -112,7 +112,7 @@ mod utils;
 /// The UI module houses the formatter module that is used to print to stdout and the themes module used to construct and define new themes.
 mod ui;
 
-pub use crate::core::{Command, Event, EventEmitter, Program, ProgramSettings, Setting};
+pub use crate::core::{Command, Event, EventEmitter, Program, Setting};
 pub use parse::ParserMatches;
 pub use termcolor::Color;
 pub use ui::{CustomPattern, Designation, Formatter, Pattern, PredefinedThemes, Theme};
