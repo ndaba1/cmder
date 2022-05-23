@@ -2,7 +2,7 @@
 
 use crate::core::Command;
 
-use super::flags::{CmderFlag, CmderOption};
+use super::{CmderFlag, CmderOption};
 
 #[derive(Debug, Clone)]
 pub struct ParserMatches<'pm> {
