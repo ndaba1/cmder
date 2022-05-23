@@ -11,4 +11,4 @@ mod errors;
 pub use errors::{CmderError, CmderResult};
 pub use events::{Event, EventConfig, EventEmitter};
 pub use program::{Command, Program};
-pub use settings::{ProgramSettings, Setting};
+pub use settings::Setting;

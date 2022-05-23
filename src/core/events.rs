@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use super::program::Command;
 
+/// The event config struct defines the structure of the data passed to a listener to a particular event. Whenever an event occurs, its config is generated depending on the context. All its members are private but has numerous getters to access the fields data.
 #[derive(Clone, Debug)]
 pub struct EventConfig<'e> {
     args: Vec<String>,
@@ -100,6 +101,7 @@ impl<'a> EventConfig<'a> {
 
 pub type EventListener = fn(EventConfig) -> ();
 
+/// The event emitter struct simply contains a `listeners` field which is a vector containing a tuple with the structure: (`EventListener`, `index_of_execution`).
 #[derive(Clone)]
 pub struct EventEmitter {
     listeners: HashMap<Event, Vec<(EventListener, i32)>>,
