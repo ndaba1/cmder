@@ -572,6 +572,9 @@ impl<'p> Command<'p> {
 
             use Event::*;
 
+            // All default listeners have a pstn of -4. Any listeners created using the `before_all` have a pstn of -5 and listeners created by the `program.on()` method have a pstn of 0. When an event occurs, these listeners are sorted according to pstn and executed in said order.
+
+            // Default help listener - Cannot be overriden
             emitter.on(
                 OutputHelp,
                 |cfg| cfg.get_matched_cmd().unwrap().output_help(),
