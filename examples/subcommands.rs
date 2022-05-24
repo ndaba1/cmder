@@ -67,6 +67,7 @@ fn main() {
             "-p --port <port-number>",
             "Add port mappings from container to host",
         )
+        .description("Start running a given container")
         .option("-i --interactive", "Start container in interactive shell")
         .option("-d --detached", "Start container in detached state")
         .action(cmd::cont_start_cb);
