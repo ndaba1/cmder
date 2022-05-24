@@ -364,6 +364,15 @@ impl<'p> Command<'p> {
     }
 
     /// Registers a new option or flag depending on the values passed along with the help string for the flag or option
+    ///
+    /// ```
+    /// use cmder::{Command};
+    ///
+    /// Command::new("empty")
+    ///     .option("-g --global", "Some global flag")
+    ///     .option("-p --port <port-no>", "The port to use");
+    ///
+    /// ```
     pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
 
@@ -396,6 +405,21 @@ impl<'p> Command<'p> {
     // Settings
 
     /// A method used to register a new listener to the program. It takes in a closure that will be invoked when the given event occurs
+    ///
+    /// ```
+    /// use cmder::{Program, Event, Setting};
+    ///
+    /// let mut p = Program::new();
+    ///
+    /// // Event emitter functionality is only available on the root_cmd(Program)
+    /// p.on(Event::OutputVersion, |_cfg|{
+    ///     // logic goes here...
+    /// });
+    ///
+    /// // If you wish for your listener to override the default listener and only that listener, you can set:
+    /// p.set(Setting::OverrideSpecificEvent(Event::OutputVersion));
+    ///
+    /// ```
     pub fn on(&mut self, event: Event, cb: EventListener) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(event, cb, 0)
@@ -410,11 +434,22 @@ impl<'p> Command<'p> {
     }
 
     /// A global method used to configure all settings of the program. This settings are defined in the `Setting` enum
+    ///
+    /// ```
+    /// use cmder::{Program, Setting};
+    ///
+    /// let mut p = Program::new();
+    ///
+    /// p.set(Setting::ShowHelpOnAllErrors(true));
+    /// p.set(Setting::HideCommandAliases(false));
+    /// // other settings...
+    /// ```
     pub fn set(&mut self, setting: Setting) {
         let s = &mut self.settings;
 
         use Setting::*;
         match setting {
+            // TODO: Implement theme functionality in way that doesnt introduce breaking change
             ChoosePredefinedTheme(theme) => match theme {
                 PredefinedThemes::Plain => self.theme = Theme::plain(),
                 PredefinedThemes::Colorful => self.theme = Theme::colorful(),
