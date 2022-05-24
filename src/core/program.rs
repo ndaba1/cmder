@@ -465,7 +465,14 @@ impl<'p> Command<'p> {
 
                 if let Some(cmd) = matches.get_matched_cmd() {
                     if let Some(cb) = cmd.callback {
+                        if matches.get_raw_args_count() <= 1 && cmd.settings.show_help_on_empty_args
+                        {
+                            cmd.output_help();
+                            return;
+                        }
                         (cb)(matches);
+                    } else {
+                        cmd.output_help();
                     }
                 }
             }
@@ -561,6 +568,7 @@ impl<'p> Command<'p> {
                     |cfg| {
                         let p = cfg.get_program();
 
+                        // TODO: output version in better way
                         println!("{}, v{}", p.get_name(), p.get_version());
                         println!("{}", p.get_author());
                         println!("{}", p.get_description());
