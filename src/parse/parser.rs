@@ -107,7 +107,7 @@ impl<'p> Parser<'p> {
                     self.valid_arg_found = true;
                     self.parser_cfg.arg_matches.extend_from_slice(&arg_cfg[..]);
                     self.parser_cfg.matched_cmd = Some(cmd);
-                } else if cursor_index == 0 {
+                } else if !cmd.get_subcommands().is_empty() {
                     // if no args were expected and the first arg is not empty, then it was probably a command
                     return Err(CmderError::UnknownCommand(arg.clone()));
                 } else {
