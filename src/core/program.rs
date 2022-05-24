@@ -421,7 +421,6 @@ impl<'p> Command<'p> {
             },
             EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
             HideCommandAliases(hide) => s.hide_command_aliases = hide,
-            SeparateOptionsAndFlags(separate) => s.separate_options_and_flags = separate,
             ShowHelpOnAllErrors(show) => s.show_help_on_all_errors = show,
             ShowHelpOnEmptyArgs(show) => s.show_help_on_empty_args = show,
             DefineCustomTheme(theme) => self.theme = theme,
@@ -429,7 +428,6 @@ impl<'p> Command<'p> {
             OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
             OverrideSpecificEventListener(event) => s.events_to_override.push(event),
             AutoIncludeHelpSubcommand(val) => s.auto_include_help_subcommand = val,
-            EnableTreeViewSubcommand(val) => s.enable_tree_view_subcommand = val,
             IgnoreAllErrors(val) => s.ignore_all_errors = val,
         }
     }
