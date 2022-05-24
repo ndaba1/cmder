@@ -771,4 +771,17 @@ mod tests {
             )]
         );
     }
+
+    #[test]
+    fn test_prog_settings() {
+        let p = Command::new("empty");
+
+        assert!(!p.settings.ignore_all_errors);
+        assert!(p.settings.auto_include_help_subcommand);
+        assert!(p.settings.enable_command_suggestions);
+        assert!(p.settings.hide_command_aliases);
+        assert!(!p.settings.show_help_on_all_errors);
+        assert!(!p.settings.override_all_default_listeners);
+        assert!(p.settings.events_to_override.is_empty());
+    }
 }
