@@ -11,7 +11,7 @@ use crate::{
 
 use super::events::EventListener;
 use super::{
-    super::parse::flags::{CmderFlag, CmderOption},
+    super::parse::{CmderFlag, CmderOption},
     events::{EventConfig, EventEmitter},
     settings::{ProgramSettings, Setting},
 };
@@ -27,8 +27,8 @@ impl Program {
     pub fn new() -> Command<'static> {
         Command {
             flags: vec![
-                CmderFlag::new("-v", "--version", "Print out version information"),
-                CmderFlag::new("-h", "--help", "Print out help information"),
+                CmderFlag::generate("-v", "--version", "Print out version information"),
+                CmderFlag::generate("-h", "--help", "Print out help information"),
             ],
             is_root: true,
             emitter: Some(EventEmitter::default()),
@@ -89,7 +89,11 @@ impl<'p> Command<'p> {
             alias: None,
             arguments: vec![],
             description: None,
-            flags: vec![CmderFlag::new("-h", "--help", "Print out help information")],
+            flags: vec![CmderFlag::generate(
+                "-h",
+                "--help",
+                "Print out help information",
+            )],
             options: vec![],
             subcommands: vec![],
             callback: None,
@@ -190,6 +194,11 @@ impl<'p> Command<'p> {
         self.parent.as_ref()
     }
 
+    /// Returns the more info value of a command
+    pub fn get_cmd_info(&self) -> &str {
+        self.more_info.unwrap_or("")
+    }
+
     /// Returns the usage string of a command
     pub fn get_usage_str(&self) -> String {
         let mut parent = self.get_parent();
@@ -232,7 +241,7 @@ impl<'p> Command<'p> {
     // Core functionality
     fn _add_args(&mut self, args: &[&str]) {
         for p in args.iter() {
-            let temp = Argument::new(p, None);
+            let temp = Argument::generate(p, None);
             if !self.arguments.contains(&temp) {
                 self.arguments.push(temp);
             }
@@ -269,7 +278,7 @@ impl<'p> Command<'p> {
 
     /// Used to register a new argument, receives the name of the argument and its help string
     pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
-        let arg = Argument::new(val, Some(help.to_string()));
+        let arg = Argument::generate(val, Some(help.to_string()));
 
         if !self.arguments.contains(&arg) {
             self.arguments.push(arg);
@@ -299,17 +308,58 @@ impl<'p> Command<'p> {
             }
         }
 
-        let option = CmderOption::new(short, long, help, &args[..]).required(r);
+        let option = CmderOption::generate(short, long, help, &args[..]).is_required(r);
         if !self.options.contains(&option) {
             self.options.push(option)
         }
     }
 
+    /// A method to add more information to be printed with the help information of a command
+    pub fn info(&mut self, val: &'p str) -> &mut Self {
+        self.more_info = Some(val);
+        self
+    }
+
     /// Similar to the .option() method but it is instead used to register options that are required
-    pub fn required(&mut self, val: &'p str, help: &'p str) -> &mut Self {
+    pub fn required_option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
         let values: Vec<_> = val.split_whitespace().collect();
         self._generate_option(values, help, true);
 
+        self
+    }
+
+    /// A method for adding flags thats more flexible than the default `.option()` method
+    /// ```
+    /// use cmder::{Command, CmderFlag};
+    ///
+    /// Command::new("test").add_flag(
+    ///   CmderFlag::new("version")
+    ///     .help("Version flag")
+    ///     .short("-v")
+    ///     .long("--version"),
+    /// );
+    /// ```
+    pub fn add_flag(&mut self, flag: CmderFlag<'p>) -> &mut Self {
+        self.flags.push(flag);
+        self
+    }
+
+    /// This method is similar to the `add_flag` method but it applies to options as shown
+    /// ```
+    /// use cmder::{CmderOption, Command};
+    ///
+    /// Command::new("test").add_option(
+    ///   CmderOption::new("port")
+    ///     .help("The port option")
+    ///     .short("-p")
+    ///     .long("--port")
+    ///     .is_required(true)
+    ///     .argument("<port-number>"),
+    /// );
+    ///
+    /// ```
+    pub fn add_option(&mut self, opt: CmderOption<'p>) -> &mut Self {
+        self.options.push(opt);
         self
     }
 
@@ -332,7 +382,7 @@ impl<'p> Command<'p> {
         }
 
         if args.is_empty() {
-            let flag = CmderFlag::new(short, long, help);
+            let flag = CmderFlag::generate(short, long, help);
             if !self.flags.contains(&flag) {
                 self.flags.push(flag)
             };
@@ -697,7 +747,10 @@ mod tests {
         assert_eq!(program.get_version(), "0.1.0");
         assert_eq!(
             program.get_arguments(),
-            &vec![Argument::new("<dummy>", Some("Some dummy value".into()))]
+            &vec![Argument::generate(
+                "<dummy>",
+                Some("Some dummy value".into())
+            )]
         )
     }
 
@@ -711,7 +764,11 @@ mod tests {
         assert_eq!(cmd.get_name(), "test2");
         assert_eq!(
             cmd.get_flags(),
-            &vec![CmderFlag::new("-h", "--help", "Print out help information")]
+            &vec![CmderFlag::generate(
+                "-h",
+                "--help",
+                "Print out help information"
+            )]
         );
     }
 }

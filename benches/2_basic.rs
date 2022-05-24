@@ -1,4 +1,4 @@
-use cmder::Command;
+use cmder::{CmderFlag, CmderOption, Command};
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn build_with_args(c: &mut Criterion) {
@@ -21,12 +21,54 @@ fn build_with_flags(c: &mut Criterion) {
     });
 }
 
+fn build_w_flag_builder(c: &mut Criterion) {
+    c.bench_function("build_w_flag_builder", |b| {
+        b.iter(|| {
+            Command::new("flags")
+                .add_flag(
+                    CmderFlag::new("extra")
+                        .help("Something extra")
+                        .long("--extra")
+                        .short("-x"),
+                )
+                .add_flag(
+                    CmderFlag::new("verbose")
+                        .help("Verbosity")
+                        .long("--verbose")
+                        .short("-v"),
+                );
+        })
+    });
+}
+
 fn build_with_options(c: &mut Criterion) {
     c.bench_function("build_with_options", |b| {
         b.iter(|| {
             Command::new("options")
                 .option("-n --name [name]", "Optional name")
-                .option("-f --file-path <path>", "File path");
+                .required_option("-f --file-path <path>", "File path");
+        })
+    });
+}
+
+fn build_w_opt_builder(c: &mut Criterion) {
+    c.bench_function("build_w_opt_builder", |b| {
+        b.iter(|| {
+            Command::new("options")
+                .add_option(
+                    CmderOption::new("name")
+                        .help("optional name")
+                        .short("-n")
+                        .long("--name")
+                        .argument("[name]"),
+                )
+                .add_option(
+                    CmderOption::new("file-path")
+                        .short("-f")
+                        .long("--file-path")
+                        .argument("<path>")
+                        .is_required(true),
+                );
         })
     });
 }
@@ -45,7 +87,9 @@ criterion_group!(
     benches,
     build_with_args,
     build_with_flags,
+    build_w_flag_builder,
     build_with_options,
+    build_w_opt_builder,
     build_with_partial_args
 );
 criterion_main!(benches);

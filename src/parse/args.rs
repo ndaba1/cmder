@@ -19,8 +19,18 @@ pub struct Argument {
 }
 
 impl Argument {
+    pub fn new(val: &str) -> Self {
+        Self {
+            name: val.into(),
+            required: false,
+            description: None,
+            literal: "".into(),
+            variadic: false,
+        }
+    }
+
     /// Takes in a string literal as input and returns a new argument instance after resolving all the struct fields of an argument by calling the `clean_arg` function.
-    pub fn new(value: &str, description: Option<String>) -> Self {
+    pub fn generate(value: &str, description: Option<String>) -> Self {
         let (name, required, variadic) = clean_arg(value.trim());
 
         Self {
@@ -30,6 +40,21 @@ impl Argument {
             description,
             variadic,
         }
+    }
+
+    pub fn help(mut self, val: &str) -> Self {
+        self.description = Some(val.into());
+        self
+    }
+
+    pub fn is_variadic(mut self, val: bool) -> Self {
+        self.variadic = val;
+        self
+    }
+
+    pub fn is_required(mut self, val: bool) -> Self {
+        self.required = val;
+        self
     }
 }
 
@@ -92,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_arg_creation() {
-        let a = Argument::new("<test-app>", Some("Dummy help str".into()));
+        let a = Argument::generate("<test-app>", Some("Dummy help str".into()));
 
         assert!(a.required);
         assert!(!a.variadic);

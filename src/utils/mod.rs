@@ -1,3 +1,4 @@
+mod err_help;
 mod help;
 mod suggest_commands;
 

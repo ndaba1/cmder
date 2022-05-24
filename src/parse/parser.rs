@@ -7,9 +7,9 @@ use crate::core::EventConfig;
 use crate::core::{CmderError, CmderResult};
 use crate::Event;
 
-use super::flags::{resolve_flag, resolve_option, CmderFlag, CmderOption};
 use super::matches::{ArgsMatches, CommandMatches, FlagsMatches, OptionsMatches, ParserMatches};
 use super::Argument;
+use super::{resolve_flag, resolve_option, CmderFlag, CmderOption};
 
 pub struct Parser<'a> {
     cmd: &'a Command<'a>,
