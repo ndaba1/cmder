@@ -113,6 +113,6 @@ mod utils;
 mod ui;
 
 pub use crate::core::{Command, Event, EventEmitter, Program, Setting};
-pub use parse::ParserMatches;
+pub use parse::{Argument, CmderFlag, CmderOption, ParserMatches};
 pub use termcolor::Color;
 pub use ui::{CustomPattern, Designation, Formatter, Pattern, PredefinedThemes, Theme};
