@@ -759,7 +759,13 @@ impl<'f> FormatGenerator for Command<'f> {
 
                 (leading, floating)
             }
-            _ => (self.get_name().into(), self.get_description().into()),
+            _ => {
+                let mut leading: String = self.get_name().into();
+                if !self.settings.hide_command_aliases {
+                    leading.push_str(&format!(" | {}", self.get_alias()))
+                }
+                (leading, self.get_description().into())
+            }
         }
     }
 }
