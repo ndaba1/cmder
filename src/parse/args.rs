@@ -6,26 +6,54 @@ pub struct Argument {
     pub name: String,
 
     /// Depending on whether the argument is wrapped in angle brackets or square brackets, it is marked as required or not. This field is later checked when the cmd.parse method is called and if a required arg is missing, and error is thrown and the program exits, althought this behavior can be modified by adding a listener to the `Event::OptionMissingArgument` event.
-    pub required: bool,
+    pub is_required: bool,
 
     /// The raw literal of the argument, in the same way that it was passed, without any modifications, angle brackets and all.
-    pub literal: String,
+    pub raw: String,
 
     /// An optional description about the argument
     pub description: Option<String>,
 
     /// Whether or not the arg is variadic or not
-    pub variadic: bool,
+    pub is_variadic: bool,
+
+    pub valid_values: Vec<String>,
+    pub default_value: String,
 }
 
 impl Argument {
     pub fn new(val: &str) -> Self {
+        let mut delimiters = vec![' ', ' '];
+        let mut variadic = false;
+        let mut required = false;
+        let mut name = val.to_string();
+        let raw = val.to_owned();
+
+        if name.starts_with('<') {
+            delimiters = vec!['<', '>'];
+            required = true
+        } else if name.starts_with('[') {
+            delimiters = vec!['[', ']'];
+        };
+
+        name = name
+            .replace(delimiters[0], "")
+            .replace(delimiters[1], "")
+            .replace('-', "");
+
+        if name.ends_with("...") {
+            name = name.replace("...", "");
+            variadic = true
+        };
+
         Self {
-            name: val.into(),
-            required: false,
+            raw,
+            name,
             description: None,
-            literal: "".into(),
-            variadic: false,
+            is_required: required,
+            is_variadic: variadic,
+            valid_values: vec![],
+            default_value: String::new(),
         }
     }
 
@@ -35,11 +63,18 @@ impl Argument {
 
         Self {
             name,
-            required,
-            literal: value.to_string(),
+            is_required: required,
+            raw: value.to_string(),
             description,
-            variadic,
+            is_variadic: variadic,
+            valid_values: vec![],
+            default_value: String::new(),
         }
+    }
+
+    pub fn default(mut self, val: &str) -> Self {
+        self.default_value = val.into();
+        self
     }
 
     pub fn help(mut self, val: &str) -> Self {
@@ -47,13 +82,27 @@ impl Argument {
         self
     }
 
-    pub fn is_variadic(mut self, val: bool) -> Self {
-        self.variadic = val;
+    pub fn variadic(mut self, val: bool) -> Self {
+        self.is_variadic = val;
         self
     }
 
-    pub fn is_required(mut self, val: bool) -> Self {
-        self.required = val;
+    pub fn required(mut self, val: bool) -> Self {
+        self.is_required = val;
+        self
+    }
+
+    pub fn validate_with(mut self, vals: Vec<&str>) -> Self {
+        let mut valid = vec![];
+        for s in vals {
+            valid.push(s.into())
+        }
+        self.valid_values = valid;
+        self
+    }
+
+    pub fn display_as(mut self, val: &str) -> Self {
+        self.raw = val.into();
         self
     }
 }
@@ -86,28 +135,8 @@ fn clean_arg(val: &str) -> (String, bool, bool) {
 }
 
 impl FormatGenerator for Argument {
-    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
-        use crate::ui::formatter::Pattern;
-        match &ptrn {
-            Pattern::Custom(ptrn) => {
-                let base = &ptrn.args_fmter;
-
-                let mut floating = String::from("");
-                let mut leading = base
-                    .replace("{{name}}", &self.name)
-                    .replace("{{literal}}", &self.literal);
-
-                if base.contains("{{description}}") {
-                    leading =
-                        leading.replace("{{description}}", &self.description.clone().unwrap());
-                } else {
-                    floating = self.description.clone().unwrap()
-                }
-
-                (leading, floating)
-            }
-            _ => (self.literal.clone(), self.description.clone().unwrap()),
-        }
+    fn generate(&self, _ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        (self.raw.clone(), self.description.clone().unwrap())
     }
 }
 
@@ -117,10 +146,11 @@ mod tests {
 
     #[test]
     fn test_arg_creation() {
+        // TODO: Update tests heavily
         let a = Argument::generate("<test-app>", Some("Dummy help str".into()));
 
-        assert!(a.required);
-        assert!(!a.variadic);
+        assert!(a.is_required);
+        assert!(!a.is_variadic);
         assert_eq!(a.name, "test_app");
         assert_eq!(a.description, Some("Dummy help str".into()));
     }
