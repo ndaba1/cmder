@@ -105,6 +105,7 @@ pub type EventListener = fn(EventConfig) -> ();
 #[derive(Clone)]
 pub struct EventEmitter {
     listeners: HashMap<Event, Vec<(EventListener, i32)>>,
+    events_to_override: Vec<Event>,
 }
 
 impl Debug for EventEmitter {
@@ -113,10 +114,52 @@ impl Debug for EventEmitter {
     }
 }
 
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub enum Event {
+    /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
+    /// The callbacks set override the default behavior
+    MissingRequiredArgument,
+
+    /// This is similar to the `MissingArgument` argument variant except it occurs when the missing argument is for an option. The string value passed is the name of the missing argument.
+    ///The callbacks set override the default behavior
+    OptionMissingArgument,
+
+    /// This gets triggered when the method output_command_help is called on a command. The value that gets passed to it is the name of the command that the method has been invoked for.
+    OutputCommandHelp,
+
+    /// This gets called anytime the output_help method is called on the program. The value passed here is an empty string and the callbacks do not override the default behavior
+    OutputHelp,
+
+    /// This event occurs when the output_version method gets called on the program instance. The value passed to it is the version of the program. It also overrides the default behavior
+    OutputVersion,
+
+    /// An event that occurs when the passed command could not be matched to any of the existing commands in the program. The value passed to it is the name of the unrecognized command.
+    /// The callbacks set override the default behavior
+    UnknownCommand,
+
+    /// This occurs when an unknown flag or option is passed to the program, the value passed to the callback being the unknown option and also overrides the default program behavior.
+    UnknownOption,
+
+    UnresolvedArgument,
+}
+
+fn get_events_slice() -> Vec<Event> {
+    use Event::*;
+    vec![
+        MissingRequiredArgument,
+        OutputHelp,
+        OutputVersion,
+        UnknownCommand,
+        UnknownOption,
+        UnresolvedArgument,
+    ]
+}
+
 impl EventEmitter {
     pub fn new() -> Self {
         Self {
             listeners: HashMap::new(),
+            events_to_override: vec![],
         }
     }
 
@@ -127,6 +170,10 @@ impl EventEmitter {
                 self.listeners.insert(event, vec![(cb, pstn)]);
             }
         };
+    }
+
+    pub fn override_event(&mut self, event: Event) {
+        self.events_to_override.push(event)
     }
 
     pub fn emit(&self, cfg: EventConfig) {
@@ -199,33 +246,4 @@ impl Default for EventEmitter {
     fn default() -> Self {
         Self::new()
     }
-}
-
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
-pub enum Event {
-    /// This event gets triggered when a required argument is missing from the args passed to the cli. The string value passed to this listener contains two values, the name of the matched command, and the name of the missing argument, comma separated.
-    /// The callbacks set override the default behavior
-    MissingRequiredArgument,
-
-    /// This is similar to the `MissingArgument` argument variant except it occurs when the missing argument is for an option. The string value passed is the name of the missing argument.
-    ///The callbacks set override the default behavior
-    OptionMissingArgument,
-
-    /// This gets triggered when the method output_command_help is called on a command. The value that gets passed to it is the name of the command that the method has been invoked for.
-    OutputCommandHelp,
-
-    /// This gets called anytime the output_help method is called on the program. The value passed here is an empty string and the callbacks do not override the default behavior
-    OutputHelp,
-
-    /// This event occurs when the output_version method gets called on the program instance. The value passed to it is the version of the program. It also overrides the default behavior
-    OutputVersion,
-
-    /// An event that occurs when the passed command could not be matched to any of the existing commands in the program. The value passed to it is the name of the unrecognized command.
-    /// The callbacks set override the default behavior
-    UnknownCommand,
-
-    /// This occurs when an unknown flag or option is passed to the program, the value passed to the callback being the unknown option and also overrides the default program behavior.
-    UnknownOption,
-
-    UnresolvedArgument,
 }
