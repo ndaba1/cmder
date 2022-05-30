@@ -6,7 +6,7 @@ use crate::{
     parse::{matches::ParserMatches, parser::Parser, Argument},
     ui::formatter::FormatGenerator,
     utils::{self, HelpWriter},
-    Event, Pattern, PredefinedThemes, Theme,
+    Event, Pattern, PredefinedTheme, Theme,
 };
 
 use super::events::EventListener;
@@ -451,8 +451,8 @@ impl<'p> Command<'p> {
         match setting {
             // TODO: Implement theme functionality in way that doesnt introduce breaking change
             ChoosePredefinedTheme(theme) => match theme {
-                PredefinedThemes::Plain => self.theme = Theme::plain(),
-                PredefinedThemes::Colorful => self.theme = Theme::colorful(),
+                PredefinedTheme::Plain => self.theme = Theme::plain(),
+                PredefinedTheme::Colorful => self.theme = Theme::colorful(),
             },
             EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
             HideCommandAliases(hide) => s.hide_command_aliases = hide,
@@ -761,7 +761,8 @@ impl<'f> FormatGenerator for Command<'f> {
             }
             _ => {
                 let mut leading: String = self.get_name().into();
-                if !self.settings.hide_command_aliases {
+                dbg!(self.settings.hide_command_aliases);
+                if self.settings.hide_command_aliases {
                     leading.push_str(&format!(" | {}", self.get_alias()))
                 }
                 (leading, self.get_description().into())
