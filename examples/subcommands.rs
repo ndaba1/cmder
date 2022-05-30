@@ -1,8 +1,7 @@
 #![allow(unused)]
 
 use cmder::{
-    construct_theme, Color, Event, ParserMatches, Pattern, PredefinedThemes, Theme,
-    {Program, Setting},
+    Color, Event, ParserMatches, Pattern, PredefinedTheme, Theme, {Program, Setting},
 };
 /// This is an example of a program that uses commands which have subcommands themselves. The example used here emulates the docker cli. i.e
 /// docker container ls, docker image ls, docker image build
@@ -71,6 +70,8 @@ fn main() {
         .option("-i --interactive", "Start container in interactive shell")
         .option("-d --detached", "Start container in detached state")
         .action(cmd::cont_start_cb);
+
+    program.set(Setting::HideCommandAliases(true));
 
     program.parse();
 }

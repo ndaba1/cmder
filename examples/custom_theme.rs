@@ -1,4 +1,4 @@
-use cmder::{construct_theme, Color, Program, Setting, Theme};
+use cmder::{Color, Program, Setting, Theme};
 
 fn main() {
     let mut program = Program::new();
@@ -16,19 +16,10 @@ fn main() {
 
     // You can use the `construct_theme` macro and play around with the colors
     use Color::*;
-    program.set(Setting::DefineCustomTheme(construct_theme!(
-        Green, Magenta, Blue, Red, White
+    program.set(Setting::DefineCustomTheme(Theme::new(
+        Green, Magenta, Blue, Red, White,
     )));
 
-    // You could also construct the theme manually
-    let theme = Theme {
-        keyword: Green,
-        headline: Magenta,
-        description: Blue,
-        error: Red,
-        other: White,
-    };
-    program.set(Setting::DefineCustomTheme(theme));
     // This method will achieve exactly the same outcome as the macro expression above
 
     program.parse();
