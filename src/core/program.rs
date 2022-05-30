@@ -512,39 +512,8 @@ impl<'p> Command<'p> {
             Err(e) => {
                 // FIXME: No clones
                 // TODO: Impl into eventcfg from cmdererror
-                let clone = self.clone();
-                let shared_cfg = EventConfig::new(&clone).error_str(e.clone().into());
 
-                use CmderError::*;
-                let event_cfg = match e {
-                    MissingRequiredArgument(args) => shared_cfg
-                        .arg_c(args.len())
-                        .args(args)
-                        .exit_code(5)
-                        .set_event(Event::MissingRequiredArgument),
-                    OptionMissingArgument(args) => shared_cfg
-                        .arg_c(args.len())
-                        .args(args)
-                        .exit_code(10)
-                        .set_event(Event::OptionMissingArgument),
-                    UnknownCommand(cmd) => shared_cfg
-                        .arg_c(1)
-                        .args(vec![cmd])
-                        .exit_code(15)
-                        .set_event(Event::UnknownCommand),
-                    UnknownOption(opt) => shared_cfg
-                        .arg_c(1)
-                        .args(vec![opt])
-                        .exit_code(20)
-                        .set_event(Event::UnknownOption),
-                    UnresolvedArgument(vals) => shared_cfg
-                        .arg_c(vals.len())
-                        .args(vals)
-                        .exit_code(25)
-                        .set_event(Event::UnresolvedArgument),
-                };
-
-                self.emit(event_cfg);
+                // TODO: Implement new Error handling
             }
         }
     }
