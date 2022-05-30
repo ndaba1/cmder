@@ -1,4 +1,4 @@
-use crate::{Event, Pattern, PredefinedThemes, Theme};
+use crate::{Event, Pattern, PredefinedTheme, Theme};
 
 #[derive(Debug, Clone)]
 pub struct ProgramSettings {
@@ -34,7 +34,7 @@ pub enum Setting {
     EnableCommandSuggestion(bool),
     HideCommandAliases(bool),
     DefineCustomTheme(Theme),
-    ChoosePredefinedTheme(PredefinedThemes),
+    ChoosePredefinedTheme(PredefinedTheme),
     SetProgramPattern(Pattern),
     OverrideAllDefaultListeners(bool),
     OverrideSpecificEventListener(Event),
