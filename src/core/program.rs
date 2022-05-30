@@ -9,7 +9,7 @@ use crate::{
     Event, Pattern, PredefinedTheme, Theme,
 };
 
-use super::events::EventListener;
+use super::events::{EventCallback, EventListener};
 use super::{
     super::parse::{CmderFlag, CmderOption},
     events::{EventConfig, EventEmitter},
@@ -420,7 +420,7 @@ impl<'p> Command<'p> {
     /// p.set(Setting::OverrideSpecificEvent(Event::OutputVersion));
     ///
     /// ```
-    pub fn on(&mut self, event: Event, cb: EventListener) {
+    pub fn on(&mut self, event: Event, cb: EventCallback) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(event, cb, 0)
         }
@@ -585,7 +585,7 @@ impl<'p> Command<'p> {
             if !settings.override_all_default_listeners {
                 // Default behavior for errors is to print the error message
                 if !settings.ignore_all_errors {
-                    emitter.on_all_errors(
+                    emitter.on_errors(
                         |cfg| {
                             let error = cfg.get_error_str();
 
@@ -614,7 +614,7 @@ impl<'p> Command<'p> {
 
                 // Remove default listeners if behavior set to override
                 for event in &settings.events_to_override {
-                    emitter.rm_lstnr_idx(*event, -4)
+                    emitter.rm_default_lstnr(*event, -4)
                 }
             }
 
@@ -630,7 +630,7 @@ impl<'p> Command<'p> {
             // Register listener for unknown commands
             if settings.enable_command_suggestions {
                 // Remove default listener to register new default one
-                emitter.rm_lstnr_idx(UnknownCommand, -4);
+                emitter.rm_default_lstnr(UnknownCommand, -4);
 
                 emitter.on(
                     UnknownCommand,
@@ -672,28 +672,28 @@ impl<'p> Command<'p> {
     }
 
     /// Method used to register a listener before all events
-    pub fn before_all(&mut self, cb: EventListener) {
+    pub fn before_all(&mut self, cb: EventCallback) {
         if let Some(emitter) = &mut self.emitter {
             emitter.insert_before_all(cb)
         }
     }
 
     /// Register a listener after all other listeners
-    pub fn after_all(&mut self, cb: EventListener) {
+    pub fn after_all(&mut self, cb: EventCallback) {
         if let Some(emitter) = &mut self.emitter {
             emitter.insert_after_all(cb)
         }
     }
 
     /// Register a listener only before help is printed out
-    pub fn before_help(&mut self, cb: EventListener) {
+    pub fn before_help(&mut self, cb: EventCallback) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(Event::OutputHelp, cb, -4)
         }
     }
 
     /// Register a listener to be invoked after help is printed out
-    pub fn after_help(&mut self, cb: EventListener) {
+    pub fn after_help(&mut self, cb: EventCallback) {
         if let Some(emitter) = &mut self.emitter {
             emitter.on(Event::OutputHelp, cb, 1)
         }
