@@ -2,29 +2,30 @@ use crate::ui::formatter::FormatGenerator;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmderFlag<'f> {
-    pub short: &'f str,
-    pub long: &'f str,
-    pub name: &'f str,
-    pub description: &'f str,
+    pub(crate) name: String,
+    pub(crate) long: String,
+    pub(crate) short: String,
+    pub(crate) description: &'f str,
+    pub(crate) is_global: bool,
 }
 
 impl<'a> CmderFlag<'a> {
     pub fn new(name: &'a str) -> Self {
+        let mut long = String::from("--");
+        long.push_str(name);
         Self {
-            short: "",
-            long: "",
-            name,
+            name: name.into(),
+            short: "".into(),
+            long,
             description: "",
+            is_global: false,
         }
     }
 
-    pub fn short(mut self, val: &'a str) -> Self {
-        self.short = val;
-        self
-    }
-
-    pub fn long(mut self, val: &'a str) -> Self {
-        self.long = val;
+    pub fn short(mut self, val: char) -> Self {
+        let mut short = String::from("-");
+        short.push(val);
+        self.short = short;
         self
     }
 
@@ -33,19 +34,15 @@ impl<'a> CmderFlag<'a> {
         self
     }
 
-    pub(crate) fn generate(short: &'a str, long: &'a str, desc: &'a str) -> Self {
-        Self {
-            short,
-            long,
-            name: "",
-            description: desc,
-        }
+    pub fn global(mut self, val: bool) -> Self {
+        self.is_global = val;
+        self
     }
 }
 
 impl<'d> Default for CmderFlag<'d> {
     fn default() -> Self {
-        Self::generate("", "", "")
+        Self::new("")
     }
 }
 
@@ -62,34 +59,13 @@ pub(crate) fn resolve_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<Cmd
 }
 
 impl<'f> FormatGenerator for CmderFlag<'f> {
-    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
-        use crate::ui::formatter::Pattern;
-        match &ptrn {
-            Pattern::Custom(ptrn) => {
-                let base = &ptrn.flags_fmter;
-
-                let mut floating = String::from("");
-                let mut leading = base
-                    .replace("{{short}}", self.short)
-                    .replace("{{long}}", self.long);
-
-                if leading.contains("{{description}}") {
-                    leading = leading.replace("{{description}}", self.description);
-                } else {
-                    floating = self.description.into()
-                }
-
-                (leading, floating)
-            }
-            _ => {
-                let short: String = if !self.short.is_empty() {
-                    format!("{},", self.short)
-                } else {
-                    "  ".into()
-                };
-                (format!("{} {}", short, self.long), self.description.into())
-            }
-        }
+    fn generate(&self, _ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        let short: String = if !self.short.is_empty() {
+            format!("{},", self.short)
+        } else {
+            "  ".into()
+        };
+        (format!("{} {}", short, self.long), self.description.into())
     }
 }
 
@@ -99,23 +75,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_manual_creation() {
-        let f = CmderFlag::generate("-h", "--help", "A help flag");
-
-        assert_eq!(f.short, "-h");
-        assert_eq!(f.long, "--help");
-        assert_eq!(f.description, "A help flag");
-    }
-
-    #[test]
-    fn test_auto_creation() {
+    fn test_flag_creation() {
         let f = CmderFlag::new("help")
-            .help("A help flag")
-            .short("-h")
-            .long("--help");
+            .short('h')
+            .help("Help flag")
+            .global(true);
 
-        assert_eq!(f.short, "-h");
-        assert_eq!(f.long, "--help");
-        assert_eq!(f.description, "A help flag");
+        assert!(f.is_global);
+        assert_eq!(f.name, "help".to_owned());
+        assert_eq!(f.long, "--help".to_owned());
+        assert_eq!(f.short, "-h".to_owned());
+        assert_eq!(f.description, "Help flag")
     }
 }
