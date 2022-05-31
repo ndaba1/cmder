@@ -4,33 +4,34 @@ use super::Argument;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmderOption<'op> {
-    pub short: &'op str,
-    pub long: &'op str,
-    pub arguments: Vec<Argument>,
-    pub description: &'op str,
-    pub required: bool,
-    pub name: &'op str,
+    pub(crate) name: String,
+    pub(crate) short: String,
+    pub(crate) long: String,
+    pub(crate) arguments: Vec<Argument>,
+    pub(crate) description: &'op str,
+    pub(crate) is_required: bool,
+    pub(crate) is_global: bool,
 }
 
 impl<'b> CmderOption<'b> {
     pub fn new(name: &'b str) -> Self {
+        let mut long = String::from("--");
+        long.push_str(name);
         Self {
-            short: "",
-            name,
+            name: name.into(),
+            short: "".into(),
+            long,
             arguments: vec![],
             description: "",
-            long: "",
-            required: false,
+            is_required: false,
+            is_global: false,
         }
     }
 
-    pub fn short(mut self, val: &'b str) -> Self {
-        self.short = val;
-        self
-    }
-
-    pub fn long(mut self, val: &'b str) -> Self {
-        self.long = val;
+    pub fn short(mut self, val: char) -> Self {
+        let mut short = String::from("-");
+        short.push(val);
+        self.short = short;
         self
     }
 
@@ -39,13 +40,18 @@ impl<'b> CmderOption<'b> {
         self
     }
 
-    pub fn is_required(mut self, v: bool) -> Self {
-        self.required = v;
+    pub fn required(mut self, v: bool) -> Self {
+        self.is_required = v;
+        self
+    }
+
+    pub fn global(mut self, v: bool) -> Self {
+        self.is_global = v;
         self
     }
 
     pub fn argument(mut self, val: &'b str) -> Self {
-        self.arguments.push(Argument::generate(val, None));
+        self.arguments.push(Argument::new(val));
         self
     }
 
@@ -53,27 +59,11 @@ impl<'b> CmderOption<'b> {
         self.arguments.push(a);
         self
     }
-
-    pub(crate) fn generate(short: &'b str, long: &'b str, desc: &'b str, args: &[&str]) -> Self {
-        let mut arguments = vec![];
-        for a in args.iter() {
-            arguments.push(Argument::generate(a, None))
-        }
-
-        Self {
-            short,
-            long,
-            description: desc,
-            arguments,
-            required: false,
-            name: "",
-        }
-    }
 }
 
 impl<'d> Default for CmderOption<'d> {
     fn default() -> Self {
-        Self::generate("", "", "", &[])
+        Self::new("")
     }
 }
 
@@ -90,62 +80,30 @@ pub(crate) fn resolve_option<'o>(list: &'o [CmderOption], val: String) -> Option
 }
 
 impl<'f> FormatGenerator for CmderOption<'f> {
-    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
-        use crate::ui::formatter::Pattern;
-        match &ptrn {
-            Pattern::Custom(ptrn) => {
-                let base = &ptrn.flags_fmter;
+    fn generate(&self, _ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        let short: String = if !self.short.is_empty() {
+            format!("{},", self.short)
+        } else {
+            "  ".into()
+        };
 
-                let mut floating = String::from("");
-                let mut leading = base
-                    .replace("{{short}}", self.short)
-                    .replace("{{long}}", self.long);
+        let args = if !self.arguments.is_empty() {
+            let mut raw = String::new();
 
-                if base.contains("{{args}}") && !self.arguments.is_empty() {
-                    let mut value = String::new();
-
-                    for a in &self.arguments {
-                        value.push_str(&(a.literal));
-                        value.push(' ');
-                    }
-
-                    leading = leading.replace("{{args}}", value.trim());
-                }
-
-                if base.contains("{{description}}") {
-                    leading = leading.replace("{{description}}", self.description);
-                } else {
-                    floating = self.description.into()
-                }
-
-                (leading, floating)
+            for a in &self.arguments {
+                raw.push_str(&(a.get_raw_value()));
+                raw.push(' ');
             }
-            _ => {
-                let short: String = if !self.short.is_empty() {
-                    format!("{},", self.short)
-                } else {
-                    "  ".into()
-                };
 
-                let args = if !self.arguments.is_empty() {
-                    let mut raw = String::new();
+            raw
+        } else {
+            "".into()
+        };
 
-                    for a in &self.arguments {
-                        raw.push_str(&(a.literal));
-                        raw.push(' ');
-                    }
-
-                    raw
-                } else {
-                    "".into()
-                };
-
-                (
-                    format!("{} {} {}", short, self.long, args),
-                    self.description.into(),
-                )
-            }
-        }
+        (
+            format!("{} {} {}", short, self.long, args),
+            self.description.into(),
+        )
     }
 }
 
@@ -156,12 +114,17 @@ mod tests {
 
     #[test]
     fn test_options_creation() {
-        let o = CmderOption::generate("-p", "--port", "Port flag", &[]);
+        let opt = CmderOption::new("port")
+            .short('p')
+            .help("A port option")
+            .required(true)
+            .add_argument(Argument::new("value").required(true).default("9000"));
 
-        assert_eq!(o.short, "-p");
-        assert_eq!(o.long, "--port");
-        assert_eq!(o.description, "Port flag");
-        assert_eq!(o.required, false);
-        assert_eq!(o.arguments, vec![]);
+        assert!(opt.is_required);
+        assert!(!opt.is_global);
+        assert_eq!(opt.description, "A port option");
+        assert_eq!(opt.short, "-p".to_owned());
+        assert_eq!(opt.long, "--port".to_owned());
+        assert_eq!(opt.arguments.len(), 1);
     }
 }
