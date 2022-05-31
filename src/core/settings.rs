@@ -17,9 +17,17 @@ impl ProgramSettings {
 
 impl Default for ProgramSettings {
     fn default() -> Self {
-        Self {
-            values: HashMap::new(),
-        }
+        let mut values = HashMap::new();
+
+        use Setting::*;
+        values.insert(AutoIncludeHelpSubcommand, true);
+        values.insert(IgnoreAllErrors, false);
+        values.insert(OverrideAllDefaultListeners, false);
+        values.insert(ShowCommandAliases, false);
+        values.insert(ShowHelpOnAllErrors, false);
+        values.insert(ShowHelpOnEmptyArgs, true);
+
+        Self { values }
     }
 }
 
