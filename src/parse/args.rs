@@ -2,23 +2,13 @@ use crate::ui::formatter::FormatGenerator;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Argument {
-    /// Sets the name of the argument. The name is what actually gets returned in the resulting hashmaps once the arguments are parsed. It is in a rust-friendly format, that is, all the leading hyphens are removed and any other hyphens replaced with underscores
-    pub name: String,
-
-    /// Depending on whether the argument is wrapped in angle brackets or square brackets, it is marked as required or not. This field is later checked when the cmd.parse method is called and if a required arg is missing, and error is thrown and the program exits, althought this behavior can be modified by adding a listener to the `Event::OptionMissingArgument` event.
-    pub is_required: bool,
-
-    /// The raw literal of the argument, in the same way that it was passed, without any modifications, angle brackets and all.
-    pub raw: String,
-
-    /// An optional description about the argument
-    pub description: Option<String>,
-
-    /// Whether or not the arg is variadic or not
-    pub is_variadic: bool,
-
-    pub valid_values: Vec<String>,
-    pub default_value: String,
+    name: String,
+    is_required: bool,
+    raw: String,
+    description: Option<String>,
+    is_variadic: bool,
+    valid_values: Vec<String>,
+    default_value: String,
 }
 
 impl Argument {
