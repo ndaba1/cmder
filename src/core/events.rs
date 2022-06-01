@@ -41,47 +41,6 @@ impl<'a> EventConfig<'a> {
     pub fn get_matched_cmd(&self) -> Option<&Command<'a>> {
         self.matched_cmd
     }
-
-    // Setters
-    pub fn args(mut self, args: Vec<String>) -> Self {
-        self.args = args;
-        self
-    }
-
-    pub fn arg_c(mut self, count: usize) -> Self {
-        self.arg_count = count;
-        self
-    }
-
-    pub fn exit_code(mut self, code: usize) -> Self {
-        self.exit_code = code;
-        self
-    }
-
-    pub fn error_str(mut self, val: String) -> Self {
-        self.error_string = val;
-        self
-    }
-
-    pub fn set_event(mut self, event: Event) -> Self {
-        self.event_type = event;
-        self
-    }
-
-    pub fn set_matched_cmd(mut self, cmd: &'a Command<'a>) -> Self {
-        self.matched_cmd = Some(cmd);
-        self
-    }
-
-    pub fn info(mut self, info: &'a str) -> Self {
-        self.additional_info = info;
-        self
-    }
-
-    pub fn program(mut self, p_ref: &'a Command<'a>) -> Self {
-        self.program_ref = p_ref;
-        self
-    }
 }
 
 impl<'a> EventConfig<'a> {
@@ -123,13 +82,13 @@ impl Debug for EventEmitter {
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Event {
     MissingRequiredArgument,
-    OptionMissingArgument,
-    OutputCommandHelp,
     OutputHelp,
     OutputVersion,
     UnknownCommand,
     UnknownOption,
     UnresolvedArgument,
+    InvalidArgumentValue,
+    MissingRequiredOption,
 }
 
 fn get_events_slice() -> Vec<Event> {
@@ -141,6 +100,8 @@ fn get_events_slice() -> Vec<Event> {
         UnknownCommand,
         UnknownOption,
         UnresolvedArgument,
+        InvalidArgumentValue,
+        MissingRequiredOption,
     ]
 }
 
@@ -150,6 +111,10 @@ impl EventEmitter {
             listeners: HashMap::new(),
             events_to_override: vec![],
         }
+    }
+
+    pub fn get_events_to_override(&self) -> &Vec<Event> {
+        &self.events_to_override
     }
 
     pub fn on(&mut self, event: Event, cb: EventCallback, pstn: i32) {
@@ -174,7 +139,6 @@ impl EventEmitter {
 
         if let Some(lstnrs) = self.listeners.get(&event) {
             let mut lstnrs = lstnrs.clone();
-
             lstnrs.sort_by(|a, b| a.index.cmp(&b.index));
 
             for (lstnr) in lstnrs {
@@ -215,10 +179,11 @@ impl EventEmitter {
         }
     }
 
-    pub(crate) fn rm_default_lstnr(&mut self, event: Event, val: i32) {
+    pub(crate) fn rm_default_lstnr(&mut self, event: Event) {
         if let Some(lstnrs) = self.listeners.get_mut(&event) {
             for (idx, lstnr) in lstnrs.clone().iter().enumerate() {
-                if lstnr.index == val as isize {
+                // Index for program default listeners is -4
+                if lstnr.index == -4 {
                     lstnrs.remove(idx);
                 }
             }
