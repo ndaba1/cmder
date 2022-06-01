@@ -4,7 +4,7 @@ use std::{env, fmt::Debug, path::PathBuf, rc::Rc};
 use crate::{
     core::errors::CmderError,
     parse::{matches::ParserMatches, parser::Parser, Argument},
-    ui::formatter::FormatGenerator,
+    ui::{formatter::FormatGenerator, themes::get_predefined_theme},
     utils::{self, HelpWriter},
     Event, Pattern, PredefinedTheme, Theme,
 };
@@ -27,8 +27,12 @@ impl Program {
     pub fn new() -> Command<'static> {
         Command {
             flags: vec![
-                CmderFlag::generate("-v", "--version", "Print out version information"),
-                CmderFlag::generate("-h", "--help", "Print out help information"),
+                CmderFlag::new("version")
+                    .short('V')
+                    .help("Print out version information"),
+                CmderFlag::new("help")
+                    .short('h')
+                    .help("Print out help information"),
             ],
             is_root: true,
             emitter: Some(EventEmitter::default()),
@@ -89,11 +93,9 @@ impl<'p> Command<'p> {
             alias: None,
             arguments: vec![],
             description: None,
-            flags: vec![CmderFlag::generate(
-                "-h",
-                "--help",
-                "Print out help information",
-            )],
+            flags: vec![CmderFlag::new("help")
+                .short('h')
+                .help("Print out help information")],
             options: vec![],
             subcommands: vec![],
             callback: None,
@@ -110,29 +112,7 @@ impl<'p> Command<'p> {
         }
     }
 
-    // Root command options
-
-    /// Sets the author of the program
-    pub fn author(&mut self, author: &'p str) -> &mut Self {
-        self.author = Some(author);
-        self
-    }
-
-    /// Simply sets the version of the program
-    pub fn version(&mut self, val: &'p str) -> &mut Self {
-        self.version = Some(val);
-        self
-    }
-
-    /// Sets the command name but only for the root command(program)
-    pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
-        if self.is_root {
-            self.name = val.into();
-        }
-        self
-    }
-
-    // Getters
+    /************************************* Getters ********************************************/
 
     /// Returns the author of the program or empty value if none is set
     pub fn get_author(&self) -> &str {
@@ -221,6 +201,57 @@ impl<'p> Command<'p> {
         usage_str.trim().into()
     }
 
+    /********************************** Command Metadata methods **********************************/
+
+    /// Sets the author of the program
+    pub fn author(&mut self, author: &'p str) -> &mut Self {
+        self.author = Some(author);
+        self
+    }
+
+    /// Simply sets the version of the program
+    pub fn version(&mut self, val: &'p str) -> &mut Self {
+        self.version = Some(val);
+        self
+    }
+
+    /// Sets the command name but only for the root command(program)
+    pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
+        if self.is_root {
+            self.name = val.into();
+        }
+        self
+    }
+
+    /// Sets the alias of a given command
+    pub fn alias(&mut self, val: &'p str) -> &mut Self {
+        self.alias = Some(val);
+        self
+    }
+
+    /// Sets the description or help string of a command
+    pub fn description(&mut self, val: &'p str) -> &mut Self {
+        self.description = Some(val);
+        self
+    }
+
+    /// Used to register a new argument, receives the name of the argument and its help string
+    pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
+        let arg = Argument::new(val).help(help);
+
+        if !self.arguments.contains(&arg) {
+            self.arguments.push(arg);
+        }
+
+        self
+    }
+
+    /// A method used to configure the function to be invoked when the command it is chained to is matched
+    pub fn action(&mut self, cb: Callback) -> &mut Self {
+        self.callback = Some(cb);
+        self
+    }
+
     /// A utility method used to check if a subcommand is contained within a command and returns a reference to said subcommand if found
     pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
         self.subcommands
@@ -241,7 +272,7 @@ impl<'p> Command<'p> {
     // Core functionality
     fn _add_args(&mut self, args: &[&str]) {
         for p in args.iter() {
-            let temp = Argument::generate(p, None);
+            let temp = Argument::new(p);
             if !self.arguments.contains(&temp) {
                 self.arguments.push(temp);
             }
@@ -256,41 +287,12 @@ impl<'p> Command<'p> {
     #[deprecated(note = "Subcmds now built automatically")]
     pub fn build(&mut self) {}
 
-    /// Sets the alias of a given command
-    pub fn alias(&mut self, val: &'p str) -> &mut Self {
-        self.alias = Some(val);
-        self
-    }
-
-    /// Sets the description or help string of a command
-    pub fn description(&mut self, val: &'p str) -> &mut Self {
-        self.description = Some(val);
-        self
-    }
-
     /// Adds a new subcommand to an instance of a command
     pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
         let parent = Rc::new(self.to_owned());
 
         self.subcommands.push(Self::new(name));
         self.subcommands.last_mut().unwrap()._add_parent(parent)
-    }
-
-    /// Used to register a new argument, receives the name of the argument and its help string
-    pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
-        let arg = Argument::generate(val, Some(help.to_string()));
-
-        if !self.arguments.contains(&arg) {
-            self.arguments.push(arg);
-        }
-
-        self
-    }
-
-    /// A method used to configure the function to be invoked when the command it is chained to is matched
-    pub fn action(&mut self, cb: Callback) -> &mut Self {
-        self.callback = Some(cb);
-        self
     }
 
     fn _generate_option(&mut self, values: Vec<&'p str>, help: &'p str, r: bool) {
@@ -308,7 +310,15 @@ impl<'p> Command<'p> {
             }
         }
 
-        let option = CmderOption::generate(short, long, help, &args[..]).is_required(r);
+        let option = CmderOption {
+            name: long.replace("--", ""),
+            short: short.into(),
+            long: long.into(),
+            arguments: vec![],
+            description: help,
+            is_required: false,
+            is_global: false,
+        };
         if !self.options.contains(&option) {
             self.options.push(option)
         }
@@ -335,8 +345,7 @@ impl<'p> Command<'p> {
     /// Command::new("test").add_flag(
     ///   CmderFlag::new("version")
     ///     .help("Version flag")
-    ///     .short("-v")
-    ///     .long("--version"),
+    ///     .short('-v')
     /// );
     /// ```
     pub fn add_flag(&mut self, flag: CmderFlag<'p>) -> &mut Self {
@@ -351,9 +360,8 @@ impl<'p> Command<'p> {
     /// Command::new("test").add_option(
     ///   CmderOption::new("port")
     ///     .help("The port option")
-    ///     .short("-p")
-    ///     .long("--port")
-    ///     .is_required(true)
+    ///     .short('-p')
+    ///     .required(true)
     ///     .argument("<port-number>"),
     /// );
     ///
@@ -384,14 +392,20 @@ impl<'p> Command<'p> {
             if v.starts_with("--") {
                 long = v;
             } else if v.starts_with('-') {
-                short = v;
+                short = v
             } else {
                 args.push(*v);
             }
         }
 
         if args.is_empty() {
-            let flag = CmderFlag::generate(short, long, help);
+            let flag = CmderFlag {
+                name: long.replace("--", ""),
+                long: long.into(),
+                short: short.into(),
+                description: help,
+                is_global: false,
+            };
             if !self.flags.contains(&flag) {
                 self.flags.push(flag)
             };
@@ -426,6 +440,13 @@ impl<'p> Command<'p> {
         }
     }
 
+    pub fn override_default(&mut self, event: Event, cb: EventCallback) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.override_event(event);
+            emitter.on(event, cb, 0);
+        }
+    }
+
     /// Used to emit events and thus trigger the callbacks
     pub(crate) fn emit(&self, cfg: EventConfig) {
         if let Some(emitter) = &self.emitter {
@@ -444,44 +465,35 @@ impl<'p> Command<'p> {
     /// p.set(Setting::HideCommandAliases(false));
     /// // other settings...
     /// ```
-    pub fn set(&mut self, setting: Setting) {
-        let s = &mut self.settings;
+    pub fn set(&mut self, setting: Setting, val: bool) {
+        self.settings.set(setting, val);
+    }
 
-        use Setting::*;
-        match setting {
-            // TODO: Implement theme functionality in way that doesnt introduce breaking change
-            ChoosePredefinedTheme(theme) => match theme {
-                PredefinedTheme::Plain => self.theme = Theme::plain(),
-                PredefinedTheme::Colorful => self.theme = Theme::colorful(),
-            },
-            EnableCommandSuggestion(enable) => s.enable_command_suggestions = enable,
-            HideCommandAliases(hide) => s.hide_command_aliases = hide,
-            ShowHelpOnAllErrors(show) => s.show_help_on_all_errors = show,
-            ShowHelpOnEmptyArgs(show) => s.show_help_on_empty_args = show,
-            DefineCustomTheme(theme) => self.theme = theme,
-            SetProgramPattern(pattern) => self.pattern = pattern,
-            OverrideAllDefaultListeners(val) => s.override_all_default_listeners = val,
-            OverrideSpecificEventListener(event) => s.events_to_override.push(event),
-            AutoIncludeHelpSubcommand(val) => s.auto_include_help_subcommand = val,
-            IgnoreAllErrors(val) => s.ignore_all_errors = val,
-        }
+    pub fn use_predefined_theme(&mut self, theme: PredefinedTheme) -> &mut Self {
+        self.theme = get_predefined_theme(theme);
+        self
+    }
+
+    pub fn theme(&mut self, theme: Theme) -> &mut Self {
+        self.theme = theme;
+        self
     }
 
     // Parser
     fn _handle_root_flags(&self, matches: &ParserMatches) {
-        let cmd = matches.get_matched_cmd().unwrap();
-        let program = matches.get_program();
+        // let cmd = matches.get_matched_cmd().unwrap();
+        // let program = matches.get_program();
 
-        let cfg = EventConfig::new(program);
-        if matches.contains_flag("-h") {
-            self.emit(cfg.set_matched_cmd(cmd).set_event(Event::OutputHelp));
-        } else if matches.contains_flag("-v") && cmd.is_root {
-            self.emit(
-                cfg.arg_c(1_usize)
-                    .args(vec![program.get_version().to_string()])
-                    .set_event(Event::OutputVersion),
-            );
-        }
+        // let cfg = EventConfig::new(program);
+        // if matches.contains_flag("-h") {
+        //     self.emit(cfg.set_matched_cmd(cmd).set_event(Event::OutputHelp));
+        // } else if matches.contains_flag("-v") && cmd.is_root {
+        //     self.emit(
+        //         cfg.arg_c(1_usize)
+        //             .args(vec![program.get_version().to_string()])
+        //             .set_event(Event::OutputVersion),
+        //     );
+        // }
     }
 
     fn __parse(&'p mut self, args: Vec<String>) {
@@ -498,11 +510,12 @@ impl<'p> Command<'p> {
 
                 if let Some(cmd) = matches.get_matched_cmd() {
                     if let Some(cb) = cmd.callback {
-                        if matches.get_raw_args_count() <= 1 && cmd.settings.show_help_on_empty_args
-                        {
-                            cmd.output_help();
-                            return;
-                        }
+                        // if matches.get_raw_args_count() <= 1
+                        //     && cmd.settings.get(Setting::ShowHelpOnEmptyArgs)
+                        // {
+                        //     cmd.output_help();
+                        //     return;
+                        // }
                         (cb)(matches);
                     } else {
                         cmd.output_help();
@@ -519,7 +532,7 @@ impl<'p> Command<'p> {
     }
 
     fn __init(&mut self) {
-        if !self.subcommands.is_empty() && self.settings.auto_include_help_subcommand {
+        if !self.subcommands.is_empty() && self.settings.get(Setting::AutoIncludeHelpSubcommand) {
             // Add help subcommand
             self.subcommand("help")
                 .argument("<SUB-COMMAND>", "The subcommand to print out help info for")
@@ -551,9 +564,9 @@ impl<'p> Command<'p> {
             );
 
             // Register default listeners
-            if !settings.override_all_default_listeners {
+            if !settings.get(Setting::OverrideAllDefaultListeners) {
                 // Default behavior for errors is to print the error message
-                if !settings.ignore_all_errors {
+                if !settings.get(Setting::IgnoreAllErrors) {
                     emitter.on_errors(
                         |cfg| {
                             let error = cfg.get_error_str();
@@ -582,41 +595,9 @@ impl<'p> Command<'p> {
                 );
 
                 // Remove default listeners if behavior set to override
-                for event in &settings.events_to_override {
-                    emitter.rm_default_lstnr(*event, -4)
+                for event in emitter.clone().get_events_to_override() {
+                    emitter.rm_default_lstnr(*event)
                 }
-            }
-
-            // Register help listeners
-            if settings.show_help_on_all_errors && !settings.ignore_all_errors {
-                let _output_help_ = |cfg: EventConfig| cfg.get_matched_cmd().unwrap().output_help();
-
-                // Output help on all error events
-                emitter.insert_before_all(_output_help_);
-            }
-
-            // TODO: remove this
-            // Register listener for unknown commands
-            if settings.enable_command_suggestions {
-                // Remove default listener to register new default one
-                emitter.rm_default_lstnr(UnknownCommand, -4);
-
-                emitter.on(
-                    UnknownCommand,
-                    |cfg| {
-                        println!("Error: {}\n", cfg.get_error_str());
-
-                        // Suggest command
-                        let prog = cfg.get_program();
-                        let cmd = &cfg.get_args()[0];
-
-                        if let Some(ans) = utils::suggest_cmd(cmd, prog.get_subcommands()) {
-                            // output command suggestion
-                            println!("       Did you mean: `{ans}` ?\n")
-                        }
-                    },
-                    -1,
-                )
             }
         }
     }
@@ -713,7 +694,7 @@ impl<'f> FormatGenerator for Command<'f> {
                     let mut value = String::new();
 
                     for a in self.get_arguments() {
-                        value.push_str(&(a.literal));
+                        value.push_str(&(a.get_raw_value()));
                         value.push(' ');
                     }
 
@@ -730,10 +711,7 @@ impl<'f> FormatGenerator for Command<'f> {
             }
             _ => {
                 let mut leading: String = self.get_name().into();
-                dbg!(self.settings.hide_command_aliases);
-                if self.settings.hide_command_aliases {
-                    leading.push_str(&format!(" | {}", self.get_alias()))
-                }
+
                 (leading, self.get_description().into())
             }
         }
@@ -767,10 +745,7 @@ mod tests {
         assert_eq!(program.get_version(), "0.1.0");
         assert_eq!(
             program.get_arguments(),
-            &vec![Argument::generate(
-                "<dummy>",
-                Some("Some dummy value".into())
-            )]
+            &vec![Argument::new("<dummy>").help("Some dummy value")]
         )
     }
 
@@ -784,24 +759,9 @@ mod tests {
         assert_eq!(cmd.get_name(), "test2");
         assert_eq!(
             cmd.get_flags(),
-            &vec![CmderFlag::generate(
-                "-h",
-                "--help",
-                "Print out help information"
-            )]
+            &vec![CmderFlag::new("help")
+                .short('h')
+                .help("Print out help information")]
         );
-    }
-
-    #[test]
-    fn test_prog_settings() {
-        let p = Command::new("empty");
-
-        assert!(!p.settings.ignore_all_errors);
-        assert!(p.settings.auto_include_help_subcommand);
-        assert!(p.settings.enable_command_suggestions);
-        assert!(p.settings.hide_command_aliases);
-        assert!(!p.settings.show_help_on_all_errors);
-        assert!(!p.settings.override_all_default_listeners);
-        assert!(p.settings.events_to_override.is_empty());
     }
 }
