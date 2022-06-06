@@ -1,14 +1,17 @@
 use crate::ui::formatter::FormatGenerator;
 
+pub type ArgValidationFn = fn(String) -> std::io::Result<()>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Argument {
+    raw: String,
     name: String,
     is_required: bool,
-    raw: String,
-    description: Option<String>,
     is_variadic: bool,
+    description: Option<String>,
     valid_values: Vec<String>,
-    default_value: String,
+    default_value: Option<String>,
+    validation_fn: Option<ArgValidationFn>,
 }
 
 impl Argument {
@@ -45,7 +48,8 @@ impl Argument {
             is_required: required,
             is_variadic: variadic,
             valid_values: vec![],
-            default_value: String::new(),
+            default_value: None,
+            validation_fn: None,
         }
     }
 
@@ -54,7 +58,7 @@ impl Argument {
             println!("You have provided a default value but it does not match the valid values. It will therefore be ignored");
             return self;
         }
-        self.default_value = val.into();
+        self.default_value = Some(val.into());
         self
     }
 
@@ -73,12 +77,17 @@ impl Argument {
         self
     }
 
-    pub fn validate_with(mut self, vals: Vec<&str>) -> Self {
+    pub fn valid_values(mut self, vals: Vec<&str>) -> Self {
         let mut valid = vec![];
         for s in vals {
             valid.push(s.into())
         }
         self.valid_values = valid;
+        self
+    }
+
+    pub fn validate_with(mut self, validation_fn: ArgValidationFn) -> Self {
+        self.validation_fn = Some(validation_fn);
         self
     }
 
@@ -88,11 +97,7 @@ impl Argument {
     }
 
     pub fn test_value(&self, val: &str) -> bool {
-        if self.valid_values.contains(&val.into()) {
-            true
-        } else {
-            false
-        }
+        self.valid_values.contains(&val.into())
     }
 }
 
@@ -102,12 +107,16 @@ impl Argument {
         &self.name
     }
 
-    pub fn get_default_value(&self) -> &str {
-        &self.default_value
+    pub fn get_default_value(&self) -> Option<&str> {
+        if let Some(v) = &self.default_value {
+            Some(v.as_str())
+        } else {
+            None
+        }
     }
 
     pub fn has_default_value(&self) -> bool {
-        !self.default_value.is_empty()
+        self.default_value.is_none()
     }
 
     pub fn get_valid_values(&self) -> &Vec<String> {
@@ -175,16 +184,16 @@ mod tests {
 
         assert_eq!(a, b);
 
-        let mut arg = Argument::new("<arg>").validate_with(vec!["1", "2", "3"]);
+        let mut arg = Argument::new("<arg>").valid_values(vec!["1", "2", "3"]);
 
         assert!(arg.test_value("2"));
         assert!(!arg.test_value("4"));
 
         arg = arg.default("3");
-        assert_eq!(arg.get_default_value(), "3");
+        assert_eq!(arg.get_default_value(), Some("3"));
 
         // Invalid arg default value should be ignored
         arg = arg.default("6");
-        assert_eq!(arg.get_default_value(), "3")
+        assert_eq!(arg.get_default_value(), Some("3"));
     }
 }
