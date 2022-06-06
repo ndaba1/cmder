@@ -107,7 +107,7 @@ impl<'f> FormatGenerator for CmderOption<'f> {
     }
 }
 
-pub fn new_option(val: &str, help: &'static str) -> CmderOption<'static> {
+pub(crate) fn new_option(val: &str, help: &'static str, required: bool) -> CmderOption<'static> {
     let values: Vec<_> = val.split_whitespace().collect();
 
     let mut short = "";
@@ -136,7 +136,7 @@ pub fn new_option(val: &str, help: &'static str) -> CmderOption<'static> {
         long: long.into(),
         arguments: args,
         description: help,
-        is_required: false,
+        is_required: required,
         is_global: false,
     }
 }
