@@ -69,6 +69,29 @@ impl<'f> FormatGenerator for CmderFlag<'f> {
     }
 }
 
+pub(crate) fn new_flag(val: &str, help: &'static str) -> CmderFlag<'static> {
+    let values: Vec<_> = val.split_whitespace().collect();
+
+    let mut short = "";
+    let mut long = "";
+
+    for v in &values {
+        if v.starts_with("--") {
+            long = v;
+        } else if v.starts_with('-') {
+            short = v
+        }
+    }
+
+    CmderFlag {
+        name: long.replace("--", ""),
+        long: long.into(),
+        short: short.into(),
+        description: help,
+        is_global: false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
