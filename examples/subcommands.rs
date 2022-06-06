@@ -71,7 +71,7 @@ fn main() {
         .option("-d --detached", "Start container in detached state")
         .action(cmd::cont_start_cb);
 
-    program.set(Setting::HideCommandAliases(true));
+    program.set(Setting::ShowCommandAliases, true);
 
     program.parse();
 }
