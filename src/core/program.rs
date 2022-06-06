@@ -3,7 +3,9 @@ use std::{env, fmt::Debug, path::PathBuf, rc::Rc};
 
 use crate::{
     core::errors::CmderError,
-    parse::{matches::ParserMatches, parser::Parser, Argument},
+    parse::{
+        flags::new_flag, matches::ParserMatches, options::new_option, parser::Parser, Argument,
+    },
     ui::{formatter::FormatGenerator, themes::get_predefined_theme},
     utils::{self, HelpWriter},
     Event, Pattern, PredefinedTheme, Theme,
@@ -259,6 +261,107 @@ impl<'p> Command<'p> {
             .find(|c| c.get_name() == val || c.get_alias() == val)
     }
 
+    /// A method for adding a new subcommand to a command instance. It returns the newly created subcommand for further manipulation
+    /// ```
+    /// use cmder::{Program};
+    ///
+    /// let mut program = Program::new();
+    ///
+    /// program
+    ///     .subcommand("subcmd")
+    ///     .description("A simple subcmd");
+    ///
+    /// ```
+    pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
+        let parent = Rc::new(self.to_owned());
+
+        self.subcommands.push(Self::new(name));
+        self.subcommands.last_mut().unwrap()._add_parent(parent)
+    }
+
+    /// A method to add more information to be printed with the help information of a command
+    pub fn info(&mut self, val: &'p str) -> &mut Self {
+        self.more_info = Some(val);
+        self
+    }
+
+    /// A method for adding flags thats more flexible than the default `.option()` method
+    /// ```
+    /// use cmder::{Command, CmderFlag};
+    ///
+    /// Command::new("test").add_flag(
+    ///   CmderFlag::new("version")
+    ///     .help("Version flag")
+    ///     .short('-v')
+    /// );
+    /// ```
+    pub fn add_flag(&mut self, flag: CmderFlag<'p>) -> &mut Self {
+        self.flags.push(flag);
+        self
+    }
+
+    /// A simpler method for adding a flag to a command when you do not need to manipulate the structure of a flag. An example is shown below:
+    /// ```
+    /// use cmder::{Command, CmderFlag};
+    ///
+    /// Command::new("test")
+    ///     .flag("-v --verbose", "show verbose output")
+    ///     .flag("-x --extra", "some extra flag");
+    ///
+    /// ```
+    pub fn flag(&mut self, val: &'p str, help: &'static str) -> &mut Self {
+        self.add_flag(new_flag(val, help));
+        self
+    }
+
+    /// A method for adding an option to a command suitable when using the option builder interface which provides more methods for option manipulation
+    /// ```
+    /// use cmder::{CmderOption, Command};
+    ///
+    /// Command::new("test").add_option(
+    ///   CmderOption::new("port")
+    ///     .help("The port option")
+    ///     .short('p')
+    ///     .required(true)
+    ///     .argument("<port-number>"),
+    /// );
+    ///
+    /// ```
+    pub fn add_option(&mut self, opt: CmderOption<'p>) -> &mut Self {
+        self.options.push(opt);
+        self
+    }
+
+    /// Adds a new option to a command. Accepts the option syntax value and the help string
+    ///
+    /// ```
+    /// use cmder::{Command};
+    ///
+    /// Command::new("empty")
+    ///     .option("-p --port <port-no>", "The port to use")
+    ///     .option("-c --count <number>", "Some count value");
+    ///
+    /// ```
+    pub fn option(&mut self, val: &'p str, help: &'static str) -> &mut Self {
+        self.add_option(new_option(val, help, false));
+        self
+    }
+
+    /// A method for adding an option that is marked as required without necessarily using the builder interface to generate the option
+    /// ```
+    /// use cmder::{Command};
+    ///
+    /// Command::new("empty")
+    ///     .required_option("-p --port <port-no>", "The port to use");
+    ///
+    /// ```
+    pub fn required_option(&mut self, val: &'p str, help: &'static str) -> &mut Self {
+        self.add_option(new_option(val, help, true));
+        self
+    }
+
+    /********************************* Utility Methods ***********************************/
+
     fn _set_bin_name(&mut self, val: &str) {
         if self.name.is_empty() {
             let p_buff = PathBuf::from(val);
@@ -284,144 +387,12 @@ impl<'p> Command<'p> {
         self
     }
 
-    #[deprecated(note = "Subcmds now built automatically")]
-    pub fn build(&mut self) {}
-
-    /// Adds a new subcommand to an instance of a command
-    pub fn subcommand(&mut self, name: &'p str) -> &mut Self {
-        let parent = Rc::new(self.to_owned());
-
-        self.subcommands.push(Self::new(name));
-        self.subcommands.last_mut().unwrap()._add_parent(parent)
-    }
-
-    fn _generate_option(&mut self, values: Vec<&'p str>, help: &'p str, r: bool) {
-        let mut short = "";
-        let mut long = "";
-        let mut args = vec![];
-
-        for v in &values {
-            if v.starts_with("--") {
-                long = v;
-            } else if v.starts_with('-') {
-                short = v;
-            } else {
-                args.push(*v);
-            }
-        }
-
-        let option = CmderOption {
-            name: long.replace("--", ""),
-            short: short.into(),
-            long: long.into(),
-            arguments: vec![],
-            description: help,
-            is_required: false,
-            is_global: false,
-        };
-        if !self.options.contains(&option) {
-            self.options.push(option)
-        }
-    }
-
-    /// A method to add more information to be printed with the help information of a command
-    pub fn info(&mut self, val: &'p str) -> &mut Self {
-        self.more_info = Some(val);
-        self
-    }
-
-    /// Similar to the .option() method but it is instead used to register options that are required
-    pub fn required_option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
-        let values: Vec<_> = val.split_whitespace().collect();
-        self._generate_option(values, help, true);
-
-        self
-    }
-
-    /// A method for adding flags thats more flexible than the default `.option()` method
-    /// ```
-    /// use cmder::{Command, CmderFlag};
-    ///
-    /// Command::new("test").add_flag(
-    ///   CmderFlag::new("version")
-    ///     .help("Version flag")
-    ///     .short('-v')
-    /// );
-    /// ```
-    pub fn add_flag(&mut self, flag: CmderFlag<'p>) -> &mut Self {
-        self.flags.push(flag);
-        self
-    }
-
-    /// This method is similar to the `add_flag` method but it applies to options as shown
-    /// ```
-    /// use cmder::{CmderOption, Command};
-    ///
-    /// Command::new("test").add_option(
-    ///   CmderOption::new("port")
-    ///     .help("The port option")
-    ///     .short('-p')
-    ///     .required(true)
-    ///     .argument("<port-number>"),
-    /// );
-    ///
-    /// ```
-    pub fn add_option(&mut self, opt: CmderOption<'p>) -> &mut Self {
-        self.options.push(opt);
-        self
-    }
-
-    /// Registers a new option or flag depending on the values passed along with the help string for the flag or option
-    ///
-    /// ```
-    /// use cmder::{Command};
-    ///
-    /// Command::new("empty")
-    ///     .option("-g --global", "Some global flag")
-    ///     .option("-p --port <port-no>", "The port to use");
-    ///
-    /// ```
-    pub fn option(&mut self, val: &'p str, help: &'p str) -> &mut Self {
-        let values: Vec<_> = val.split_whitespace().collect();
-
-        let mut short = "";
-        let mut long = "";
-        let mut args = vec![];
-
-        for v in &values {
-            if v.starts_with("--") {
-                long = v;
-            } else if v.starts_with('-') {
-                short = v
-            } else {
-                args.push(*v);
-            }
-        }
-
-        if args.is_empty() {
-            let flag = CmderFlag {
-                name: long.replace("--", ""),
-                long: long.into(),
-                short: short.into(),
-                description: help,
-                is_global: false,
-            };
-            if !self.flags.contains(&flag) {
-                self.flags.push(flag)
-            };
-        } else {
-            self._generate_option(values, help, false);
-        }
-
-        self
-    }
-
-    // Settings
+    /********************************* Event Emitter funcs ***********************************/
 
     /// A method used to register a new listener to the program. It takes in a closure that will be invoked when the given event occurs
     ///
     /// ```
-    /// use cmder::{Program, Event, Setting};
+    /// use cmder::{Program, Event};
     ///
     /// let mut p = Program::new();
     ///
@@ -430,8 +401,6 @@ impl<'p> Command<'p> {
     ///     // logic goes here...
     /// });
     ///
-    /// // If you wish for your listener to override the default listener and only that listener, you can set:
-    /// p.set(Setting::OverrideSpecificEvent(Event::OutputVersion));
     ///
     /// ```
     pub fn on(&mut self, event: Event, cb: EventCallback) {
