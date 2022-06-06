@@ -107,6 +107,40 @@ impl<'f> FormatGenerator for CmderOption<'f> {
     }
 }
 
+pub fn new_option(val: &str, help: &'static str) -> CmderOption<'static> {
+    let values: Vec<_> = val.split_whitespace().collect();
+
+    let mut short = "";
+    let mut long = "";
+    let mut args = vec![];
+    let mut raw_args = vec![];
+
+    for v in &values {
+        if v.starts_with("--") {
+            long = v;
+        } else if v.starts_with('-') {
+            short = v
+        } else {
+            raw_args.push(v);
+        }
+    }
+
+    for a in raw_args {
+        let arg = Argument::new(a);
+        args.push(arg);
+    }
+
+    CmderOption {
+        name: long.replace("--", ""),
+        short: short.into(),
+        long: long.into(),
+        arguments: args,
+        description: help,
+        is_required: false,
+        is_global: false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
