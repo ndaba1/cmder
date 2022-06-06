@@ -205,19 +205,19 @@ impl<'p> Command<'p> {
 
     /********************************** Command Metadata methods **********************************/
 
-    /// Sets the author of the program
+    /// A simple method for setting the program author. Typically invoked on the root cmd
     pub fn author(&mut self, author: &'p str) -> &mut Self {
         self.author = Some(author);
         self
     }
 
-    /// Simply sets the version of the program
+    /// This method simply sets the version of the program.
     pub fn version(&mut self, val: &'p str) -> &mut Self {
         self.version = Some(val);
         self
     }
 
-    /// Sets the command name but only for the root command(program)
+    /// A method to override the name of the root command(the Program). This method doesn't change the actual binary name, only the value displayed to users when printing help
     pub fn bin_name(&mut self, val: &'p str) -> &mut Self {
         if self.is_root {
             self.name = val.into();
@@ -237,28 +237,59 @@ impl<'p> Command<'p> {
         self
     }
 
-    /// Used to register a new argument, receives the name of the argument and its help string
+    /// A method used to register a new argument, accepts the name of the argument and its help string. Arguments enclosed in `< >` are marked as required while those in `[ ]` are optional. Defaults to optional if no enclosing provided.
+    ///
+    /// ```
+    /// use cmder::{Command};
+    ///
+    /// Command::new("basic")
+    ///     .argument("<name>", "Some basic name value");
+    /// ```
     pub fn argument(&mut self, val: &str, help: &str) -> &mut Self {
-        let arg = Argument::new(val).help(help);
+        self.add_argument(Argument::new(val).help(help));
+        self
+    }
 
+    /// A method for adding an argument to a command normally when using the builder method to create the argument.
+    ///
+    /// ```
+    /// use cmder::{Command, Argument};
+    ///
+    /// Command::new("basic")
+    ///     .add_argument(
+    ///         Argument::new("language")
+    ///             .required(true)
+    ///             .help("The language to use")
+    ///             .variadic(false)
+    ///             .valid_values(vec!["ENG", "SPA", "FRE"])
+    ///     );
+    /// ```
+    pub fn add_argument(&mut self, arg: Argument) -> &mut Self {
         if !self.arguments.contains(&arg) {
             self.arguments.push(arg);
         }
-
         self
     }
 
     /// A method used to configure the function to be invoked when the command it is chained to is matched
+    ///
+    /// ```
+    /// use cmder::{Program};
+    ///
+    /// let mut program = Program::new();
+    ///
+    /// program
+    ///     .subcommand("basic")
+    ///     .description("A basic subcmd")
+    ///     .action(|_matches|{
+    ///         println!("Basic subcmd matched!!")
+    ///     });
+    ///
+    ///
+    /// ```
     pub fn action(&mut self, cb: Callback) -> &mut Self {
         self.callback = Some(cb);
         self
-    }
-
-    /// A utility method used to check if a subcommand is contained within a command and returns a reference to said subcommand if found
-    pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
-        self.subcommands
-            .iter()
-            .find(|c| c.get_name() == val || c.get_alias() == val)
     }
 
     /// A method for adding a new subcommand to a command instance. It returns the newly created subcommand for further manipulation
@@ -296,7 +327,9 @@ impl<'p> Command<'p> {
     /// );
     /// ```
     pub fn add_flag(&mut self, flag: CmderFlag<'p>) -> &mut Self {
-        self.flags.push(flag);
+        if !self.flags.contains(&flag) {
+            self.flags.push(flag);
+        }
         self
     }
 
@@ -328,7 +361,9 @@ impl<'p> Command<'p> {
     ///
     /// ```
     pub fn add_option(&mut self, opt: CmderOption<'p>) -> &mut Self {
-        self.options.push(opt);
+        if !self.options.contains(&opt) {
+            self.options.push(opt);
+        }
         self
     }
 
@@ -362,6 +397,13 @@ impl<'p> Command<'p> {
 
     /********************************* Utility Methods ***********************************/
 
+    /// A utility method used to try and find a subcommand within a command.
+    pub fn find_subcommand(&self, val: &str) -> Option<&Command<'_>> {
+        self.subcommands
+            .iter()
+            .find(|c| c.get_name() == val || c.get_alias() == val)
+    }
+
     fn _set_bin_name(&mut self, val: &str) {
         if self.name.is_empty() {
             let p_buff = PathBuf::from(val);
@@ -369,16 +411,6 @@ impl<'p> Command<'p> {
             if let Some(name) = p_buff.file_name() {
                 self.name = name.to_str().unwrap().into();
             };
-        }
-    }
-
-    // Core functionality
-    fn _add_args(&mut self, args: &[&str]) {
-        for p in args.iter() {
-            let temp = Argument::new(p);
-            if !self.arguments.contains(&temp) {
-                self.arguments.push(temp);
-            }
         }
     }
 
@@ -394,12 +426,12 @@ impl<'p> Command<'p> {
     /// ```
     /// use cmder::{Program, Event};
     ///
-    /// let mut p = Program::new();
+    /// let mut program = Program::new();
     ///
-    /// // Event emitter functionality is only available on the root_cmd(Program)
-    /// p.on(Event::OutputVersion, |_cfg|{
+    /// program
+    ///     .on(Event::OutputVersion, |_cfg|{
     ///     // logic goes here...
-    /// });
+    ///     });
     ///
     ///
     /// ```
@@ -409,10 +441,39 @@ impl<'p> Command<'p> {
         }
     }
 
+    // A method similar to the `on` method, the only difference being that this method not only adds a new listener, but also overrides the default one.
     pub fn override_default(&mut self, event: Event, cb: EventCallback) {
         if let Some(emitter) = &mut self.emitter {
             emitter.override_event(event);
             emitter.on(event, cb, 0);
+        }
+    }
+
+    /// A simple method used to register a listener before all events
+    pub fn before_all(&mut self, cb: EventCallback) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.insert_before_all(cb)
+        }
+    }
+
+    /// A method to register a listener after all other listeners
+    pub fn after_all(&mut self, cb: EventCallback) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.insert_after_all(cb)
+        }
+    }
+
+    /// Register a listener only before help is printed out
+    pub fn before_help(&mut self, cb: EventCallback) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.on(Event::OutputHelp, cb, -4)
+        }
+    }
+
+    /// Register a listener to be invoked after help is printed out
+    pub fn after_help(&mut self, cb: EventCallback) {
+        if let Some(emitter) = &mut self.emitter {
+            emitter.on(Event::OutputHelp, cb, 1)
         }
     }
 
@@ -423,32 +484,46 @@ impl<'p> Command<'p> {
         }
     }
 
-    /// A global method used to configure all settings of the program. This settings are defined in the `Setting` enum
+    /********************************* Command Settings ***********************************/
+
+    /// A method used to configure all settings of the program. This settings are defined in the `Setting` enum and are boolean values.
     ///
     /// ```
     /// use cmder::{Program, Setting};
     ///
     /// let mut p = Program::new();
     ///
-    /// p.set(Setting::ShowHelpOnAllErrors(true));
-    /// p.set(Setting::HideCommandAliases(false));
+    /// p.set(Setting::ShowHelpOnAllErrors, true);
+    /// p.set(Setting::HideCommandAliases, false);
     /// // other settings...
     /// ```
     pub fn set(&mut self, setting: Setting, val: bool) {
         self.settings.set(setting, val);
     }
 
+    /// A method to configure the program to use a predefine theme from the cmder crate.
     pub fn use_predefined_theme(&mut self, theme: PredefinedTheme) -> &mut Self {
         self.theme = get_predefined_theme(theme);
         self
     }
 
+    /// A method to configure the theme to be used by the program. You can also use the method to define your own custom theme.
+    ///
+    /// ```
+    /// use cmder::{Program, Theme};
+    ///
+    /// let mut program = Program::new();
+    ///
+    /// program.theme(Theme::new(Green, Magenta, Blue, Red, White));
+    ///
+    /// ```
     pub fn theme(&mut self, theme: Theme) -> &mut Self {
         self.theme = theme;
         self
     }
 
-    // Parser
+    /********************************* Parser functionality ***********************************/
+
     fn _handle_root_flags(&self, matches: &ParserMatches) {
         // let cmd = matches.get_matched_cmd().unwrap();
         // let program = matches.get_program();
@@ -588,34 +663,6 @@ impl<'p> Command<'p> {
     /// Prints out help information for a command
     pub fn output_help(&self) {
         HelpWriter::write(self, self.get_theme(), self.get_pattern());
-    }
-
-    /// Method used to register a listener before all events
-    pub fn before_all(&mut self, cb: EventCallback) {
-        if let Some(emitter) = &mut self.emitter {
-            emitter.insert_before_all(cb)
-        }
-    }
-
-    /// Register a listener after all other listeners
-    pub fn after_all(&mut self, cb: EventCallback) {
-        if let Some(emitter) = &mut self.emitter {
-            emitter.insert_after_all(cb)
-        }
-    }
-
-    /// Register a listener only before help is printed out
-    pub fn before_help(&mut self, cb: EventCallback) {
-        if let Some(emitter) = &mut self.emitter {
-            emitter.on(Event::OutputHelp, cb, -4)
-        }
-    }
-
-    /// Register a listener to be invoked after help is printed out
-    pub fn after_help(&mut self, cb: EventCallback) {
-        if let Some(emitter) = &mut self.emitter {
-            emitter.on(Event::OutputHelp, cb, 1)
-        }
     }
 
     // Debug utilities
