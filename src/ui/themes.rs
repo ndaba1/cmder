@@ -6,9 +6,7 @@ use crate::Designation;
 
 // Theme is defined a struct containing a field of values which itself is a hashmap with Designation as a key and a color as a value. This way, every designation is mapped to a color.
 #[derive(Debug, Clone)]
-pub struct Theme {
-    values: HashMap<Designation, Color>,
-}
+pub struct Theme(HashMap<Designation, Color>);
 
 /// Contains a few predefined themes that can be set to the program
 pub enum PredefinedTheme {
@@ -41,11 +39,11 @@ impl Theme {
         values.insert(Error, errors);
         values.insert(Other, others);
 
-        Self { values }
+        Self { 0: values }
     }
 
     pub fn get(&self, designation: Designation) -> Color {
-        self.values[&designation]
+        self.0[&designation]
     }
 
     pub fn plain() -> Self {
