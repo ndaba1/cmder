@@ -1,6 +1,6 @@
 use crate::ui::formatter::FormatGenerator;
 
-pub type ArgValidationFn = fn(String) -> std::io::Result<()>;
+pub type ArgValidationFn = fn(String) -> Result<(), String>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Argument {
