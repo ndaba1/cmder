@@ -3,17 +3,17 @@ use crate::ui::formatter::FormatGenerator;
 use super::Argument;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CmderOption<'op> {
+pub struct CmderOption {
     pub(crate) name: String,
     pub(crate) short: String,
     pub(crate) long: String,
     pub(crate) arguments: Vec<Argument>,
-    pub(crate) description: &'op str,
+    pub(crate) description: String,
     pub(crate) is_required: bool,
     pub(crate) is_global: bool,
 }
 
-impl<'b> CmderOption<'b> {
+impl<'b> CmderOption {
     pub fn new(name: &'b str) -> Self {
         let mut long = String::from("--");
         long.push_str(name);
@@ -22,7 +22,7 @@ impl<'b> CmderOption<'b> {
             short: "".into(),
             long,
             arguments: vec![],
-            description: "",
+            description: "".into(),
             is_required: false,
             is_global: false,
         }
@@ -36,7 +36,7 @@ impl<'b> CmderOption<'b> {
     }
 
     pub fn help(mut self, val: &'b str) -> Self {
-        self.description = val;
+        self.description = val.into();
         self
     }
 
@@ -61,13 +61,13 @@ impl<'b> CmderOption<'b> {
     }
 }
 
-impl<'d> Default for CmderOption<'d> {
+impl<'d> Default for CmderOption {
     fn default() -> Self {
         Self::new("")
     }
 }
 
-pub(crate) fn resolve_option<'o>(list: &'o [CmderOption], val: String) -> Option<CmderOption<'o>> {
+pub(crate) fn resolve_option<'o>(list: &'o [CmderOption], val: String) -> Option<CmderOption> {
     let mut flag = None;
 
     let val = val.as_str();
@@ -79,7 +79,7 @@ pub(crate) fn resolve_option<'o>(list: &'o [CmderOption], val: String) -> Option
     flag
 }
 
-impl<'f> FormatGenerator for CmderOption<'f> {
+impl<'f> FormatGenerator for CmderOption {
     fn generate(&self, _ptrn: crate::ui::formatter::Pattern) -> (String, String) {
         let short: String = if !self.short.is_empty() {
             format!("{},", self.short)
@@ -102,12 +102,12 @@ impl<'f> FormatGenerator for CmderOption<'f> {
 
         (
             format!("{} {} {}", short, self.long, args),
-            self.description.into(),
+            self.description.clone(),
         )
     }
 }
 
-pub(crate) fn new_option(val: &str, help: &'static str, required: bool) -> CmderOption<'static> {
+pub(crate) fn new_option(val: &str, help: &'static str, required: bool) -> CmderOption {
     let values: Vec<_> = val.split_whitespace().collect();
 
     let mut short = "";
@@ -135,7 +135,7 @@ pub(crate) fn new_option(val: &str, help: &'static str, required: bool) -> Cmder
         short: short.into(),
         long: long.into(),
         arguments: args,
-        description: help,
+        description: help.into(),
         is_required: required,
         is_global: false,
     }
