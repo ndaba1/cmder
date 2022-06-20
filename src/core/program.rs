@@ -4,7 +4,11 @@ use std::{env, fmt::Debug, path::PathBuf, rc::Rc};
 use crate::{
     core::errors::CmderError,
     parse::{
-        flags::new_flag, matches::ParserMatches, options::new_option, parser::Parser, Argument,
+        flags::new_flag,
+        matches::ParserMatches,
+        options::new_option,
+        parser::{NewParser, Parser},
+        Argument,
     },
     ui::{formatter::FormatGenerator, themes::get_predefined_theme},
     utils::{self, HelpWriter},
@@ -54,8 +58,8 @@ pub struct Command<'p> {
     author: Option<&'p str>,
     version: Option<&'p str>,
     arguments: Vec<Argument>,
-    flags: Vec<CmderFlag<'p>>,
-    options: Vec<CmderOption<'p>>,
+    flags: Vec<CmderFlag>,
+    options: Vec<CmderOption>,
     description: Option<&'p str>,
     more_info: Option<&'p str>,
     usage_str: Option<&'p str>,
@@ -326,7 +330,7 @@ impl<'p> Command<'p> {
     ///     .short('-v')
     /// );
     /// ```
-    pub fn add_flag(&mut self, flag: CmderFlag<'p>) -> &mut Self {
+    pub fn add_flag(&mut self, flag: CmderFlag) -> &mut Self {
         if !self.flags.contains(&flag) {
             self.flags.push(flag);
         }
@@ -360,7 +364,7 @@ impl<'p> Command<'p> {
     /// );
     ///
     /// ```
-    pub fn add_option(&mut self, opt: CmderOption<'p>) -> &mut Self {
+    pub fn add_option(&mut self, opt: CmderOption) -> &mut Self {
         if !self.options.contains(&opt) {
             self.options.push(opt);
         }
@@ -545,6 +549,11 @@ impl<'p> Command<'p> {
 
         // TODO: Rewrite this functionality
         self.__init(); // performance dip here
+
+        {
+            let mut parser = NewParser::new(self);
+            parser.parse(["hey", "you"])
+        }
 
         let mut parser = Parser::new(self);
 
