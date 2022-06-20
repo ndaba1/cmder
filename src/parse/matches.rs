@@ -9,28 +9,28 @@ pub struct ParserMatches<'pm> {
     pub(crate) arg_count: usize,
     pub(crate) root_cmd: &'pm Command<'pm>,
     pub(crate) matched_cmd: Option<&'pm Command<'pm>>,
-    pub(crate) flag_matches: Vec<FlagsMatches<'pm>>,
-    pub(crate) option_matches: Vec<OptionsMatches<'pm>>,
+    pub(crate) flag_matches: Vec<FlagsMatches>,
+    pub(crate) option_matches: Vec<OptionsMatches>,
     pub(crate) arg_matches: Vec<ArgsMatches>,
     pub(crate) positional_args: Vec<String>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub(crate) struct FlagsMatches<'a> {
+pub(crate) struct FlagsMatches {
     pub(crate) cursor_index: usize,
-    pub(crate) flag: CmderFlag<'a>,
+    pub(crate) flag: CmderFlag,
     pub(crate) appearance_count: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) struct OptionsMatches<'o> {
+pub(crate) struct OptionsMatches {
     pub(crate) cursor_index: usize,
-    pub(crate) option: CmderOption<'o>,
+    pub(crate) option: CmderOption,
     pub(crate) args: Vec<ArgsMatches>,
     pub(crate) appearance_count: usize,
 }
 
-impl<'o> OptionsMatches<'o> {
+impl<'o> OptionsMatches {
     pub(crate) fn new() -> Self {
         Self {
             appearance_count: 0,
@@ -46,11 +46,11 @@ impl<'o> OptionsMatches<'o> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct CommandMatches<'b> {
+pub(crate) struct CommandMatches {
     pub(crate) cursor_index: usize,
     pub(crate) command: Command<'static>,
     pub(crate) args: ArgsMatches,
-    pub(crate) flags: Vec<FlagsMatches<'b>>,
+    pub(crate) flags: Vec<FlagsMatches>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
