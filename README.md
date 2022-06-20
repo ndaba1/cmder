@@ -2,6 +2,7 @@
 
 <p align="center" > 
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/ndaba1/cmder/cmder-ci-workflow">
+<img alt="docs.rs" src="https://img.shields.io/docsrs/cmder">
 <img alt="Crates.io" src="https://img.shields.io/crates/d/cmder">
 <img alt="Crates.io" src="https://img.shields.io/crates/v/cmder">
 </p>
