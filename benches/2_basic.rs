@@ -25,18 +25,8 @@ fn build_w_flag_builder(c: &mut Criterion) {
     c.bench_function("build_w_flag_builder", |b| {
         b.iter(|| {
             Command::new("flags")
-                .add_flag(
-                    CmderFlag::new("extra")
-                        .help("Something extra")
-                        .long("--extra")
-                        .short("-x"),
-                )
-                .add_flag(
-                    CmderFlag::new("verbose")
-                        .help("Verbosity")
-                        .long("--verbose")
-                        .short("-v"),
-                );
+                .add_flag(CmderFlag::new("extra").help("Something extra").short('x'))
+                .add_flag(CmderFlag::new("verbose").help("Verbosity").short('v'));
         })
     });
 }
@@ -58,16 +48,14 @@ fn build_w_opt_builder(c: &mut Criterion) {
                 .add_option(
                     CmderOption::new("name")
                         .help("optional name")
-                        .short("-n")
-                        .long("--name")
+                        .short('n')
                         .argument("[name]"),
                 )
                 .add_option(
                     CmderOption::new("file-path")
-                        .short("-f")
-                        .long("--file-path")
+                        .short('f')
                         .argument("<path>")
-                        .is_required(true),
+                        .required(true),
                 );
         })
     });

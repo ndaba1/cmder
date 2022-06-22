@@ -1,45 +1,65 @@
 use crate::ui::formatter::FormatGenerator;
 
+pub type ArgValidationFn = fn(String) -> Result<(), String>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Argument {
-    /// Sets the name of the argument. The name is what actually gets returned in the resulting hashmaps once the arguments are parsed. It is in a rust-friendly format, that is, all the leading hyphens are removed and any other hyphens replaced with underscores
-    pub name: String,
-
-    /// Depending on whether the argument is wrapped in angle brackets or square brackets, it is marked as required or not. This field is later checked when the cmd.parse method is called and if a required arg is missing, and error is thrown and the program exits, althought this behavior can be modified by adding a listener to the `Event::OptionMissingArgument` event.
-    pub required: bool,
-
-    /// The raw literal of the argument, in the same way that it was passed, without any modifications, angle brackets and all.
-    pub literal: String,
-
-    /// An optional description about the argument
-    pub description: Option<String>,
-
-    /// Whether or not the arg is variadic or not
-    pub variadic: bool,
+    raw: String,
+    name: String,
+    is_required: bool,
+    is_variadic: bool,
+    description: Option<String>,
+    valid_values: Vec<String>,
+    default_value: Option<String>,
+    validation_fn: Option<ArgValidationFn>,
 }
 
 impl Argument {
     pub fn new(val: &str) -> Self {
+        let mut delimiters = vec![' ', ' '];
+        let mut variadic = false;
+        let mut required = false;
+        let mut name = val.to_string();
+        let mut raw = "".to_owned();
+
+        if name.starts_with('<') {
+            delimiters = vec!['<', '>'];
+            required = true;
+            raw = val.into()
+        } else if name.starts_with('[') {
+            delimiters = vec!['[', ']'];
+            raw = val.into()
+        };
+
+        name = name
+            .replace(delimiters[0], "")
+            .replace(delimiters[1], "")
+            .replace('-', "");
+
+        if name.ends_with("...") {
+            name = name.replace("...", "");
+            variadic = true
+        };
+
         Self {
-            name: val.into(),
-            required: false,
+            raw,
+            name,
             description: None,
-            literal: "".into(),
-            variadic: false,
+            is_required: required,
+            is_variadic: variadic,
+            valid_values: vec![],
+            default_value: None,
+            validation_fn: None,
         }
     }
 
-    /// Takes in a string literal as input and returns a new argument instance after resolving all the struct fields of an argument by calling the `clean_arg` function.
-    pub fn generate(value: &str, description: Option<String>) -> Self {
-        let (name, required, variadic) = clean_arg(value.trim());
-
-        Self {
-            name,
-            required,
-            literal: value.to_string(),
-            description,
-            variadic,
+    pub fn default(mut self, val: &str) -> Self {
+        if !self.valid_values.is_empty() && !self.test_value(val) {
+            println!("You have provided a default value but it does not match the valid values. It will therefore be ignored");
+            return self;
         }
+        self.default_value = Some(val.into());
+        self
     }
 
     pub fn help(mut self, val: &str) -> Self {
@@ -47,67 +67,98 @@ impl Argument {
         self
     }
 
-    pub fn is_variadic(mut self, val: bool) -> Self {
-        self.variadic = val;
+    pub fn variadic(mut self, val: bool) -> Self {
+        self.is_variadic = val;
         self
     }
 
-    pub fn is_required(mut self, val: bool) -> Self {
-        self.required = val;
+    pub fn required(mut self, val: bool) -> Self {
+        self.is_required = val;
         self
+    }
+
+    pub fn valid_values(mut self, vals: Vec<&str>) -> Self {
+        let mut valid = vec![];
+        for s in vals {
+            valid.push(s.into())
+        }
+        self.valid_values = valid;
+        self
+    }
+
+    pub fn validate_with(mut self, validation_fn: ArgValidationFn) -> Self {
+        self.validation_fn = Some(validation_fn);
+        self
+    }
+
+    pub fn display_as(mut self, val: &str) -> Self {
+        self.raw = val.into();
+        self
+    }
+
+    pub fn test_value(&self, val: &str) -> bool {
+        self.valid_values.contains(&val.into())
     }
 }
 
-/// Cleans an argument by removing any brackets and determining whether the argument is required is not.
-fn clean_arg(val: &str) -> (String, bool, bool) {
-    let delimiters;
+// Getters for argument values
+impl Argument {
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
 
-    let required = if val.starts_with('<') {
-        delimiters = vec!['<', '>'];
-        true
-    } else {
-        delimiters = vec!['[', ']'];
-        false
-    };
+    pub fn get_default_value(&self) -> Option<&str> {
+        if let Some(v) = &self.default_value {
+            Some(v.as_str())
+        } else {
+            None
+        }
+    }
 
-    let mut name = val
-        .replace(delimiters[0], "")
-        .replace(delimiters[1], "")
-        .replace('-', "_");
+    pub fn has_default_value(&self) -> bool {
+        self.default_value.is_none()
+    }
 
-    let variadic = if name.ends_with("...") {
-        name = name.replace("...", "");
-        true
-    } else {
-        false
-    };
+    pub fn get_valid_values(&self) -> &Vec<String> {
+        &self.valid_values
+    }
 
-    (name, required, variadic)
+    pub fn is_required(&self) -> bool {
+        self.is_required
+    }
+
+    pub fn is_variadic(&self) -> bool {
+        self.is_variadic
+    }
+
+    pub fn get_raw_value(&self) -> String {
+        if self.raw.is_empty() {
+            let mut builder = String::new();
+            let mut enclose = |a, z| {
+                builder.push(a);
+                builder.push_str(&self.name.replace('_', "-"));
+                if self.is_variadic {
+                    builder.push_str("...")
+                }
+                builder.push(z)
+            };
+
+            if self.is_required {
+                enclose('<', '>')
+            } else {
+                enclose('[', ']')
+            }
+
+            builder
+        } else {
+            self.raw.clone()
+        }
+    }
 }
 
 impl FormatGenerator for Argument {
-    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
-        use crate::ui::formatter::Pattern;
-        match &ptrn {
-            Pattern::Custom(ptrn) => {
-                let base = &ptrn.args_fmter;
-
-                let mut floating = String::from("");
-                let mut leading = base
-                    .replace("{{name}}", &self.name)
-                    .replace("{{literal}}", &self.literal);
-
-                if base.contains("{{description}}") {
-                    leading =
-                        leading.replace("{{description}}", &self.description.clone().unwrap());
-                } else {
-                    floating = self.description.clone().unwrap()
-                }
-
-                (leading, floating)
-            }
-            _ => (self.literal.clone(), self.description.clone().unwrap()),
-        }
+    fn generate(&self, _ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        (self.raw.clone(), self.description.clone().unwrap())
     }
 }
 
@@ -117,11 +168,32 @@ mod tests {
 
     #[test]
     fn test_arg_creation() {
-        let a = Argument::generate("<test-app>", Some("Dummy help str".into()));
+        let arg = Argument::new("<basic>");
 
-        assert!(a.required);
-        assert!(!a.variadic);
-        assert_eq!(a.name, "test_app");
-        assert_eq!(a.description, Some("Dummy help str".into()));
+        assert!(arg.is_required());
+        assert!(!arg.is_variadic());
+        assert_eq!(arg.get_name(), "basic");
+        assert_eq!(arg.get_raw_value(), "<basic>".to_owned());
+
+        let a = Argument::new("<text...>").help("Variadic text");
+        let b = Argument::new("text")
+            .required(true)
+            .variadic(true)
+            .help("Variadic text")
+            .display_as("<text...>");
+
+        assert_eq!(a, b);
+
+        let mut arg = Argument::new("<arg>").valid_values(vec!["1", "2", "3"]);
+
+        assert!(arg.test_value("2"));
+        assert!(!arg.test_value("4"));
+
+        arg = arg.default("3");
+        assert_eq!(arg.get_default_value(), Some("3"));
+
+        // Invalid arg default value should be ignored
+        arg = arg.default("6");
+        assert_eq!(arg.get_default_value(), Some("3"));
     }
 }

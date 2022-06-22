@@ -19,7 +19,7 @@ pub enum Pattern {
     Custom(CustomPattern),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Designation {
     Headline,
     Description,
@@ -100,13 +100,7 @@ impl Formatter {
     pub fn add(&mut self, designation: Designation, value: &str) {
         use Designation::*;
 
-        let color = match designation {
-            Headline => self.theme.headline,
-            Description => self.theme.description,
-            Error => self.theme.error,
-            Other => self.theme.other,
-            Keyword => self.theme.keyword,
-        };
+        let color = self.theme.get(designation);
 
         // Store ref to main buffer
         let main_buff = &mut self.buffer;

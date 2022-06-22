@@ -1,55 +1,52 @@
 use crate::ui::formatter::FormatGenerator;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CmderFlag<'f> {
-    pub short: &'f str,
-    pub long: &'f str,
-    pub name: &'f str,
-    pub description: &'f str,
+pub struct CmderFlag {
+    pub(crate) name: String,
+    pub(crate) long: String,
+    pub(crate) short: String,
+    pub(crate) description: String,
+    pub(crate) is_global: bool,
 }
 
-impl<'a> CmderFlag<'a> {
+impl<'a> CmderFlag {
     pub fn new(name: &'a str) -> Self {
+        let mut long = String::from("--");
+        long.push_str(name);
         Self {
-            short: "",
-            long: "",
-            name,
-            description: "",
+            name: name.into(),
+            short: "".into(),
+            long,
+            description: "".into(),
+            is_global: false,
         }
     }
 
-    pub fn short(mut self, val: &'a str) -> Self {
-        self.short = val;
-        self
-    }
-
-    pub fn long(mut self, val: &'a str) -> Self {
-        self.long = val;
+    pub fn short(mut self, val: char) -> Self {
+        let mut short = String::from("-");
+        short.push(val);
+        self.short = short;
         self
     }
 
     pub fn help(mut self, val: &'a str) -> Self {
-        self.description = val;
+        self.description = val.into();
         self
     }
 
-    pub(crate) fn generate(short: &'a str, long: &'a str, desc: &'a str) -> Self {
-        Self {
-            short,
-            long,
-            name: "",
-            description: desc,
-        }
+    pub fn global(mut self, val: bool) -> Self {
+        self.is_global = val;
+        self
     }
 }
 
-impl<'d> Default for CmderFlag<'d> {
+impl<'d> Default for CmderFlag {
     fn default() -> Self {
-        Self::generate("", "", "")
+        Self::new("")
     }
 }
 
-pub(crate) fn resolve_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag<'f>> {
+pub(crate) fn resolve_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<CmderFlag> {
     let mut flag = None;
 
     let val = val.as_str();
@@ -61,35 +58,37 @@ pub(crate) fn resolve_flag<'f>(list: &'f [CmderFlag], val: String) -> Option<Cmd
     flag
 }
 
-impl<'f> FormatGenerator for CmderFlag<'f> {
-    fn generate(&self, ptrn: crate::ui::formatter::Pattern) -> (String, String) {
-        use crate::ui::formatter::Pattern;
-        match &ptrn {
-            Pattern::Custom(ptrn) => {
-                let base = &ptrn.flags_fmter;
+impl<'f> FormatGenerator for CmderFlag {
+    fn generate(&self, _ptrn: crate::ui::formatter::Pattern) -> (String, String) {
+        let short: String = if !self.short.is_empty() {
+            format!("{},", self.short)
+        } else {
+            "  ".into()
+        };
+        (format!("{} {}", short, self.long), self.description.clone())
+    }
+}
 
-                let mut floating = String::from("");
-                let mut leading = base
-                    .replace("{{short}}", self.short)
-                    .replace("{{long}}", self.long);
+pub(crate) fn new_flag(val: &str, help: &'static str) -> CmderFlag {
+    let values: Vec<_> = val.split_whitespace().collect();
 
-                if leading.contains("{{description}}") {
-                    leading = leading.replace("{{description}}", self.description);
-                } else {
-                    floating = self.description.into()
-                }
+    let mut short = "";
+    let mut long = "";
 
-                (leading, floating)
-            }
-            _ => {
-                let short: String = if !self.short.is_empty() {
-                    format!("{},", self.short)
-                } else {
-                    "  ".into()
-                };
-                (format!("{} {}", short, self.long), self.description.into())
-            }
+    for v in &values {
+        if v.starts_with("--") {
+            long = v;
+        } else if v.starts_with('-') {
+            short = v
         }
+    }
+
+    CmderFlag {
+        name: long.replace("--", ""),
+        long: long.into(),
+        short: short.into(),
+        description: help.into(),
+        is_global: false,
     }
 }
 
@@ -99,23 +98,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_manual_creation() {
-        let f = CmderFlag::generate("-h", "--help", "A help flag");
-
-        assert_eq!(f.short, "-h");
-        assert_eq!(f.long, "--help");
-        assert_eq!(f.description, "A help flag");
-    }
-
-    #[test]
-    fn test_auto_creation() {
+    fn test_flag_creation() {
         let f = CmderFlag::new("help")
-            .help("A help flag")
-            .short("-h")
-            .long("--help");
+            .short('h')
+            .help("Help flag")
+            .global(true);
 
-        assert_eq!(f.short, "-h");
-        assert_eq!(f.long, "--help");
-        assert_eq!(f.description, "A help flag");
+        assert!(f.is_global);
+        assert_eq!(f.name, "help".to_owned());
+        assert_eq!(f.long, "--help".to_owned());
+        assert_eq!(f.short, "-h".to_owned());
+        assert_eq!(f.description, "Help flag")
     }
 }
